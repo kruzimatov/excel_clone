@@ -397,28 +397,50 @@ export function Grid({
   const maxC = Math.max(selection.start.col, selection.end.col);
   const isMultiSelect = minR !== maxR || minC !== maxC;
 
-  // Stable drag callbacks via ref — they never change identity (won't invalidate
-  // renderRow's useCallback) but always read the latest selection bounds.
-  const dragStateRef = useRef({ minR, maxR, minC, maxC, colWidth, rowHeight });
+  // Stable drag callbacks via ref — tracks absolute position for smooth fractional cell movement
+  // Stores fractional pixel offsets so small drags still accumulate into cell changes
+  const dragStateRef = useRef({ 
+    minR, maxR, minC, maxC, colWidth, rowHeight,
+  });
   dragStateRef.current = { minR, maxR, minC, maxC, colWidth, rowHeight };
 
   const handleBottomRightDrag = useCallback(
     (dx: number, dy: number) => {
       const s = dragStateRef.current;
-      const colShift = Math.round(dx / s.colWidth);
-      const rowShift = Math.round(dy / s.rowHeight);
+      
+      // Calculate column shift using fractional pixels
+      const totalColOffset = dx / s.colWidth;
+      const colShift = Math.floor(totalColOffset);
+      
+      // Calculate row shift using fractional pixels
+      const totalRowOffset = dy / s.rowHeight;
+      const rowShift = Math.floor(totalRowOffset);
+      
+      // Only update if there's an actual cell change
+      if (colShift === 0 && rowShift === 0) return;
+      
       const newEndCol = Math.max(s.minC, Math.min(COL_COUNT - 1, s.maxC + colShift));
       const newEndRow = Math.max(s.minR, Math.min(ROW_COUNT - 1, s.maxR + rowShift));
       onSelectRange({ row: s.minR, col: s.minC }, { row: newEndRow, col: newEndCol });
     },
-    [onSelectRange] // stable — onSelectRange is a stable useCallback from parent
+    [onSelectRange]
   );
 
   const handleTopLeftDrag = useCallback(
     (dx: number, dy: number) => {
       const s = dragStateRef.current;
-      const colShift = Math.round(dx / s.colWidth);
-      const rowShift = Math.round(dy / s.rowHeight);
+      
+      // Calculate column shift using fractional pixels (negative direction)
+      const totalColOffset = dx / s.colWidth;
+      const colShift = Math.floor(totalColOffset);
+      
+      // Calculate row shift using fractional pixels (negative direction)
+      const totalRowOffset = dy / s.rowHeight;
+      const rowShift = Math.floor(totalRowOffset);
+      
+      // Only update if there's an actual cell change
+      if (colShift === 0 && rowShift === 0) return;
+      
       const newStartCol = Math.max(0, Math.min(s.maxC, s.minC + colShift));
       const newStartRow = Math.max(0, Math.min(s.maxR, s.minR + rowShift));
       onSelectRange({ row: newStartRow, col: newStartCol }, { row: s.maxR, col: s.maxC });
