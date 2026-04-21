@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200">
+<title>Spreadsheet — iPad Excel Clone Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #217346;
+    --green-dark: #185c37;
+    --green-light: #d9ead3;
+    --green-ribbon: #2a7d4f;
+    --green-hover: #1e6b40;
+    --accent: #33a35c;
+    --border: #d0d0d0;
+    --border-light: #e8e8e8;
+    --bg: #f5f5f5;
+    --white: #ffffff;
+    --text: #212121;
+    --text-soft: #555;
+    --header-bg: #217346;
+    --tab-active: #ffffff;
+    --tab-inactive: #c8e6c9;
+    --ribbon-bg: #f3f3f3;
+    --income: #1a7340;
+    --expense: #c0392b;
+    --selected-cell: #217346;
+    --selected-fill: #e8f5e9;
+    --row-header: #f5f5f5;
+    --col-header: #f5f5f5;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  /* iPad frame */
+  .ipad-frame {
+    width: 1024px;
+    height: 768px;
+    background: #1c1c1e;
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 2px #3a3a3a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ipad-screen {
+    flex: 1;
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Title bar ── */
+  .title-bar {
+    background: var(--green);
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    flex-shrink: 0;
+    color: white;
+  }
+
+  .title-bar .file-name {
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.2px;
+  }
+
+  .title-bar .title-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .title-bar .title-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .title-bar .share-btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ── Ribbon tabs ── */
+  .ribbon-tabs {
+    background: var(--green-dark);
+    height: 34px;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 8px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .ribbon-tab {
+    height: 28px;
+    padding: 0 14px;
+    border-radius: 6px 6px 0 0;
+    border: none;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.1px;
+  }
+
+  .ribbon-tab.active {
+    background: var(--ribbon-bg);
+    color: var(--green-dark);
+  }
+
+  .ribbon-tab:not(.active) {
+    background: transparent;
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* ── Ribbon toolbar ── */
+  .ribbon {
+    background: var(--ribbon-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+
+  /* Home ribbon row 1 */
+  .ribbon-row {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    gap: 2px;
+  }
+
+  .ribbon-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  .ribbon-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .ribbon-group-label {
+    font-size: 9px;
+    color: #888;
+    text-align: center;
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .ribbon-group-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .rbtn {
+    height: 32px;
+    min-width: 32px;
+    border-radius: 5px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    gap: 3px;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.12s;
+  }
+
+  .rbtn:hover { background: #e0e0e0; }
+  .rbtn.active { background: #d4edda; color: var(--green); }
+
+  .rbtn .label {
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .rbtn-tall {
+    height: 52px;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 44px;
+    padding: 4px 6px;
+  }
+
+  .rbtn-tall .icon { font-size: 20px; }
+  .rbtn-tall .label { font-size: 10px; }
+
+  /* Font selector */
+  .font-select {
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    background: white;
+    width: 110px;
+    color: var(--text);
+  }
+
+  .font-size-select {
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    background: white;
+    width: 48px;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .color-btn {
+    position: relative;
+  }
+  .color-dot {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  /* ── Formulas ribbon (second row visible) ── */
+  .ribbon-formulas {
+    border-top: 1px solid #e0e0e0;
+    padding: 3px 8px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 32px;
+  }
+
+  /* ── Formula bar ── */
+  .formula-bar {
+    height: 38px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .cell-ref {
+    width: 64px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    background: #fafafa;
+    flex-shrink: 0;
+  }
+
+  .fx-label {
+    font-size: 14px;
+    font-style: italic;
+    color: var(--green);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .formula-input {
+    flex: 1;
+    height: 28px;
+    border: 1px solid var(--green);
+    border-radius: 5px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    color: var(--text);
+    box-shadow: 0 0 0 2px rgba(33,115,70,0.15);
+  }
+
+  .formula-bar-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .fbar-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-soft);
+  }
+
+  /* ── Column headers ── */
+  .col-headers {
+    display: flex;
+    flex-shrink: 0;
+    background: var(--col-header);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .row-corner {
+    width: 52px;
+    height: 28px;
+    background: var(--col-header);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .col-header {
+    height: 28px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-soft);
+    background: var(--col-header);
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .col-header.selected {
+    background: var(--green);
+    color: white;
+  }
+
+  /* ── Grid ── */
+  .grid-area {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+  }
+
+  .grid-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    table-layout: fixed;
+  }
+
+  .grid-table colgroup col:first-child { width: 52px; }
+
+  .row-header {
+    width: 52px;
+    height: 34px;
+    background: var(--row-header);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-light);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-soft);
+    user-select: none;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+  }
+
+  .row-header.selected {
+    background: var(--green);
+    color: white;
+  }
+
+  .cell {
+    height: 34px;
+    border-right: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light);
+    padding: 0 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: cell;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .cell:hover { background: #f0faf4; }
+
+  .cell.selected {
+    background: var(--selected-fill);
+    outline: 2px solid var(--selected-cell);
+    outline-offset: -2px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cell.selected::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 8px;
+    height: 8px;
+    background: var(--selected-cell);
+    border-radius: 50%;
+    border: 2px solid white;
+    z-index: 3;
+  }
+
+  .cell.header-row {
+    background: #f0f0f0;
+    font-weight: 600;
+    font-size: 12px;
+    color: #444;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .cell.income { color: var(--income); font-weight: 500; }
+  .cell.expense { color: var(--expense); font-weight: 500; }
+  .cell.balance { font-weight: 600; }
+  .cell.total-row { background: #f9f9f9; font-weight: 700; border-top: 2px solid var(--border); }
+  .cell.formula { color: #1565c0; }
+  .cell.right { text-align: right; }
+  .cell.center { text-align: center; }
+  .cell.bold { font-weight: 700; }
+  .cell.date-col { color: #555; font-size: 12px; }
+
+  /* column header row in the table */
+  .col-header-cell {
+    height: 28px;
+    background: var(--col-header);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-soft);
+    position: sticky;
+    top: 0;
+    z-index: 8;
+  }
+
+  .col-header-cell.selected {
+    background: var(--green);
+    color: white;
+  }
+
+  .row-corner-cell {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    background: var(--col-header);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Sheet tabs ── */
+  .sheet-tabs-bar {
+    height: 40px;
+    background: #efefef;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 4px;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .sheet-tab {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 6px 6px 0 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .sheet-tab.active {
+    background: white;
+    border-color: var(--border);
+    border-bottom-color: white;
+    color: var(--green-dark);
+    font-weight: 600;
+  }
+
+  .sheet-tab:not(.active) {
+    background: #e0e0e0;
+    color: #666;
+  }
+
+  .sheet-tab:not(.active):hover { background: #d5d5d5; }
+
+  .add-sheet-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--green);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    font-weight: 300;
+  }
+
+  /* Active cell indicator dot */
+  .handle-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--green);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  /* Mini color box */
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 2px; vertical-align: middle; }
+
+  /* Freeze indicator */
+  .freeze-line-v {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: #5c85d6;
+    opacity: 0.5;
+    pointer-events: none;
+    left: 52px;
+  }
+
+  /* Sum bar at bottom */
+  .status-bar {
+    height: 26px;
+    background: #f0f0f0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 20px;
+    font-size: 11.5px;
+    color: #555;
+    flex-shrink: 0;
+  }
+
+  .status-bar .stat { display: flex; gap: 5px; }
+  .status-bar .stat span { font-weight: 600; color: var(--text); }
+
+  /* Scrollbar styling */
+  .grid-area::-webkit-scrollbar { width: 8px; height: 8px; }
+  .grid-area::-webkit-scrollbar-track { background: #f0f0f0; }
+  .grid-area::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 4px; }
+
+  /* Tooltip-style cell comment indicator */
+  .cell-comment::after {
+    content: '';
+    position: absolute;
+    top: 1px; right: 1px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 6px 6px 0;
+    border-color: transparent #e67e22 transparent transparent;
+  }
+
+  .zoom-control {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .zoom-btn {
+    width: 22px; height: 22px;
+    border: 1px solid #ccc;
+    background: white;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #555;
+  }
+
+  .zoom-level {
+    font-size: 11px;
+    color: #666;
+    width: 36px;
+    text-align: center;
+  }
+
+  /* Highlighted row */
+  .highlighted-row td { background: #fffde7 !important; }
+
+  /* Column widths */
+  .w-date { width: 86px; }
+  .w-name { width: 130px; }
+  .w-desc { width: 180px; }
+  .w-type { width: 80px; }
+  .w-amount { width: 100px; }
+  .w-balance { width: 110px; }
+  .w-note { width: 160px; }
+  .w-std { width: 80px; }
+</style>
+</head>
+<body>
+
+<div class="ipad-frame">
+  <div class="ipad-screen">
+
+    <!-- Title bar -->
+    <div class="title-bar">
+      <div class="title-actions">
+        <button class="title-btn">←</button>
+        <button class="title-btn">☰</button>
+      </div>
+      <div class="file-name">📊 Ledger_2024.xlsx</div>
+      <div class="title-actions">
+        <button class="title-btn">🔍</button>
+        <button class="share-btn">↑ Share</button>
+        <button class="title-btn">···</button>
+      </div>
+    </div>
+
+    <!-- Ribbon tabs -->
+    <div class="ribbon-tabs">
+      <button class="ribbon-tab">File</button>
+      <button class="ribbon-tab active">Home</button>
+      <button class="ribbon-tab">Insert</button>
+      <button class="ribbon-tab">Draw</button>
+      <button class="ribbon-tab">Formulas</button>
+      <button class="ribbon-tab">Data</button>
+      <button class="ribbon-tab">Review</button>
+      <button class="ribbon-tab">View</button>
+    </div>
+
+    <!-- HOME Ribbon -->
+    <div class="ribbon">
+      <div class="ribbon-row">
+
+        <!-- Clipboard -->
+        <button class="rbtn rbtn-tall">
+          <span class="icon">📋</span>
+          <span class="label">Paste</span>
+        </button>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <button class="rbtn" style="height:24px;font-size:12px"><span class="label">✂ Cut</span></button>
+          <button class="rbtn" style="height:24px;font-size:12px"><span class="label">⎘ Copy</span></button>
+        </div>
+        <div class="ribbon-sep"></div>
+
+        <!-- Font -->
+        <select class="font-select"><option>Calibri</option><option>Inter</option><option>Arial</option></select>
+        <select class="font-size-select"><option>11</option><option>12</option><option>14</option></select>
+        <button class="rbtn" style="font-weight:700">B</button>
+        <button class="rbtn" style="font-style:italic">I</button>
+        <button class="rbtn" style="text-decoration:underline">U</button>
+        <button class="rbtn">S̶</button>
+        <button class="rbtn color-btn">A<div class="color-dot" style="background:#c0392b"></div></button>
+        <button class="rbtn color-btn" style="font-size:16px">🖍<div class="color-dot" style="background:#f1c40f"></div></button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Borders -->
+        <button class="rbtn"><span style="font-size:16px">⊞</span></button>
+        <button class="rbtn"><span class="label">Border ▾</span></button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Alignment -->
+        <button class="rbtn">≡</button>
+        <button class="rbtn">☰</button>
+        <button class="rbtn">⇒</button>
+        <button class="rbtn">⬅</button>
+        <button class="rbtn">⬇</button>
+        <button class="rbtn">⌃</button>
+        <button class="rbtn"><span class="label">Wrap</span></button>
+        <button class="rbtn"><span class="label">Merge ▾</span></button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Number -->
+        <button class="rbtn"><span class="label">General ▾</span></button>
+        <button class="rbtn">$</button>
+        <button class="rbtn">%</button>
+        <button class="rbtn">,</button>
+        <button class="rbtn">.0→</button>
+        <button class="rbtn">←.0</button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Styles -->
+        <button class="rbtn"><span class="label">Cond. Format ▾</span></button>
+        <button class="rbtn"><span class="label">Table ▾</span></button>
+        <button class="rbtn"><span class="label">Cell Styles ▾</span></button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Cells -->
+        <button class="rbtn"><span class="label">Insert ▾</span></button>
+        <button class="rbtn"><span class="label">Delete ▾</span></button>
+        <button class="rbtn"><span class="label">Format ▾</span></button>
+        <div class="ribbon-sep"></div>
+
+        <!-- Editing -->
+        <button class="rbtn rbtn-tall" style="color: var(--green);">
+          <span class="icon">Σ</span>
+          <span class="label">AutoSum</span>
+        </button>
+        <button class="rbtn rbtn-tall">
+          <span class="icon">🔽</span>
+          <span class="label">Fill</span>
+        </button>
+        <button class="rbtn rbtn-tall">
+          <span class="icon">🔍</span>
+          <span class="label">Find</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Formulas quick-access row -->
+    <div class="ribbon-formulas" style="background:#fafafa;">
+      <span style="font-size:11px;color:#888;margin-right:6px;font-weight:600;">FORMULAS:</span>
+      <button class="rbtn" style="font-size:11px;color:var(--green);font-weight:600;border:1px solid #cde8d5;background:#f0faf4;padding:0 8px;">Σ SUM</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">AVERAGE</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">COUNT</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">MAX</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">MIN</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">IF</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">VLOOKUP</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">SUMIF</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">COUNTIF</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">ROUND</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">TODAY</button>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #ddd;">NOW</button>
+      <span style="margin:0 4px;color:#ddd;">|</span>
+      <button class="rbtn" style="font-size:11px;padding:0 8px;border:1px solid #bce;background:#eef3ff;color:#2c5faa;">More Functions ▾</button>
+    </div>
+
+    <!-- Formula bar -->
+    <div class="formula-bar">
+      <input class="cell-ref" value="E4" readonly>
+      <div class="formula-bar-actions">
+        <button class="fbar-btn" style="color:#c0392b">✕</button>
+        <button class="fbar-btn" style="color:var(--green)">✓</button>
+      </div>
+      <span class="fx-label">fx</span>
+      <input class="formula-input" value="=SUM(E2:E3)" readonly>
+      <div class="formula-bar-actions">
+        <button class="fbar-btn" title="Name Manager">🔖</button>
+        <button class="fbar-btn" title="Expand formula bar">⤡</button>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid-area">
+      <table class="grid-table">
+        <colgroup>
+          <col style="width:52px">
+          <col class="w-date">
+          <col class="w-name">
+          <col class="w-desc">
+          <col class="w-type">
+          <col class="w-amount">
+          <col class="w-amount">
+          <col class="w-balance">
+          <col class="w-note">
+          <col class="w-std">
+          <col class="w-std">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="row-corner-cell col-header-cell"></th>
+            <th class="col-header-cell">A</th>
+            <th class="col-header-cell">B</th>
+            <th class="col-header-cell">C</th>
+            <th class="col-header-cell">D</th>
+            <th class="col-header-cell selected">E</th>
+            <th class="col-header-cell">F</th>
+            <th class="col-header-cell">G</th>
+            <th class="col-header-cell">H</th>
+            <th class="col-header-cell">I</th>
+            <th class="col-header-cell">J</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Row 1: headers -->
+          <tr>
+            <td class="row-header selected">1</td>
+            <td class="cell header-row bold">Sana / Дата</td>
+            <td class="cell header-row bold">Ism / Имя</td>
+            <td class="cell header-row bold">Tavsif / Описание</td>
+            <td class="cell header-row bold center">Tur / Тип</td>
+            <td class="cell header-row bold right">Summa / Сумма</td>
+            <td class="cell header-row bold right">Foiz / %</td>
+            <td class="cell header-row bold right">Balans / Баланс</td>
+            <td class="cell header-row bold">Izoh / Примечание</td>
+            <td class="cell header-row bold center">Holat</td>
+            <td class="cell header-row bold center">Ref</td>
+          </tr>
+          <!-- Row 2 -->
+          <tr>
+            <td class="row-header">2</td>
+            <td class="cell date-col">15.01.2024</td>
+            <td class="cell">Mansur aka</td>
+            <td class="cell">Qarz qaytarish</td>
+            <td class="cell income center">📈 Kirim</td>
+            <td class="cell right income">2 500 000</td>
+            <td class="cell right">—</td>
+            <td class="cell right balance">2 500 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Naqd</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">M-01</td>
+          </tr>
+          <!-- Row 3 -->
+          <tr>
+            <td class="row-header">3</td>
+            <td class="cell date-col">18.01.2024</td>
+            <td class="cell">Shavkat hoji</td>
+            <td class="cell">Oylik xarajat</td>
+            <td class="cell expense center">📉 Chiqim</td>
+            <td class="cell right expense">− 800 000</td>
+            <td class="cell right">3.5%</td>
+            <td class="cell right balance">1 700 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Karta</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">S-03</td>
+          </tr>
+          <!-- Row 4: selected -->
+          <tr>
+            <td class="row-header selected">4</td>
+            <td class="cell date-col">22.01.2024</td>
+            <td class="cell">Suhrob</td>
+            <td class="cell">Moliyaviy yordam</td>
+            <td class="cell income center">📈 Kirim</td>
+            <td class="cell selected formula right">1 700 000</td>
+            <td class="cell right">—</td>
+            <td class="cell right balance">3 400 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Naqd</td>
+            <td class="cell center" style="color:#e67e22">⏳</td>
+            <td class="cell center" style="color:#888;font-size:11px">S-07</td>
+          </tr>
+          <!-- Row 5 -->
+          <tr>
+            <td class="row-header">5</td>
+            <td class="cell date-col">25.01.2024</td>
+            <td class="cell">Elmurod</td>
+            <td class="cell">Qurilish materiallari</td>
+            <td class="cell expense center">📉 Chiqim</td>
+            <td class="cell right expense">− 1 200 000</td>
+            <td class="cell right">2.0%</td>
+            <td class="cell right balance">2 200 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Karta</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">E-02</td>
+          </tr>
+          <!-- Row 6 -->
+          <tr>
+            <td class="row-header">6</td>
+            <td class="cell date-col">28.01.2024</td>
+            <td class="cell">Fuad aka</td>
+            <td class="cell">Savdo tushumlari</td>
+            <td class="cell income center">📈 Kirim</td>
+            <td class="cell right income">4 100 000</td>
+            <td class="cell right">—</td>
+            <td class="cell right balance">6 300 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Bank</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">F-05</td>
+          </tr>
+          <!-- Row 7 -->
+          <tr>
+            <td class="row-header">7</td>
+            <td class="cell date-col">01.02.2024</td>
+            <td class="cell">Mansur aka</td>
+            <td class="cell">Ijara to'lovi</td>
+            <td class="cell expense center">📉 Chiqim</td>
+            <td class="cell right expense">− 950 000</td>
+            <td class="cell right">—</td>
+            <td class="cell right balance">5 350 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Naqd</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">M-02</td>
+          </tr>
+          <!-- Row 8 -->
+          <tr>
+            <td class="row-header">8</td>
+            <td class="cell date-col">05.02.2024</td>
+            <td class="cell">Shavkat hoji</td>
+            <td class="cell">Transport xarajati</td>
+            <td class="cell expense center">📉 Chiqim</td>
+            <td class="cell right expense">− 300 000</td>
+            <td class="cell right">1.2%</td>
+            <td class="cell right balance">5 050 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Karta</td>
+            <td class="cell center" style="color:var(--income)">✓</td>
+            <td class="cell center" style="color:#888;font-size:11px">S-04</td>
+          </tr>
+          <!-- Row 9 -->
+          <tr>
+            <td class="row-header">9</td>
+            <td class="cell date-col">10.02.2024</td>
+            <td class="cell">Suhrob</td>
+            <td class="cell">Mahsulot sotish</td>
+            <td class="cell income center">📈 Kirim</td>
+            <td class="cell right income">3 750 000</td>
+            <td class="cell right">—</td>
+            <td class="cell right balance">8 800 000</td>
+            <td class="cell" style="font-size:11px;color:#888">Bank</td>
+            <td class="cell center" style="color:#e67e22">⏳</td>
+            <td class="cell center" style="color:#888;font-size:11px">S-08</td>
+          </tr>
+          <!-- Row 10: TOTAL -->
+          <tr class="highlighted-row">
+            <td class="row-header" style="font-weight:700">10</td>
+            <td class="cell total-row bold" colspan="1">JAMI / ИТОГО</td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row right formula bold" style="color:#1565c0;font-size:13px">=SUM(E2:E9)</td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row right balance bold" style="font-size:13px">8 800 000</td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row"></td>
+            <td class="cell total-row"></td>
+          </tr>
+          <!-- Empty rows -->
+          <tr><td class="row-header">11</td><td class="cell" colspan="10"></td></tr>
+          <tr><td class="row-header">12</td><td class="cell" colspan="10"></td></tr>
+          <tr><td class="row-header">13</td><td class="cell" colspan="10"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div class="stat">Avg: <span>1 812 500</span></div>
+      <div class="stat">Count: <span>8</span></div>
+      <div class="stat">Sum: <span>8 800 000 UZS</span></div>
+      <div class="zoom-control">
+        <button class="zoom-btn">−</button>
+        <span class="zoom-level">100%</span>
+        <button class="zoom-btn">+</button>
+      </div>
+    </div>
+
+    <!-- Sheet tabs -->
+    <div class="sheet-tabs-bar">
+      <button class="sheet-tab active">Mansur aka</button>
+      <button class="sheet-tab">Shavkat hoji</button>
+      <button class="sheet-tab">Suhrob</button>
+      <button class="sheet-tab">Elmurod</button>
+      <button class="sheet-tab">Fuad aka</button>
+      <button class="sheet-tab">📊 Umumiy</button>
+      <button class="add-sheet-btn">+</button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
