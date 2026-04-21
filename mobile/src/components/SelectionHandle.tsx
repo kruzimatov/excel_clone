@@ -9,31 +9,29 @@ interface SelectionHandleProps {
 
 // A small draggable blue dot — PanResponder is ONLY on this 30x30 touch area
 export function SelectionHandle({ onDrag, onDragEnd, position }: SelectionHandleProps) {
-  // Throttle drag updates to ~120fps (8ms) for ultra-smooth iPad selection
-  // iPad Pro typically has 120Hz displays, so 8ms aligns with screen refresh rate
+  // Throttle drag updates to 16ms (~60fps) for performance
   const lastDragTimeRef = useRef(0);
   const lastReportedPosRef = useRef({ dx: 0, dy: 0 });
-  const THROTTLE_MS = 8; // ~120fps (ideal for iPad Pro)
-  const MIN_MOVEMENT_PX = 1; // Trigger on 1px movement for precision
+  const THROTTLE_MS = 16; // 60fps
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 1 || Math.abs(gesture.dy) > 1, // Reduced threshold for faster response
+        Math.abs(gesture.dx) > 1 || Math.abs(gesture.dy) > 1,
       // Stop ScrollView from stealing the touch while dragging the handle
       onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
         const now = Date.now();
         const timeSinceLastDrag = now - lastDragTimeRef.current;
-        const dxDelta = Math.abs(gesture.dx - lastReportedPosRef.current.dx);
-        const dyDelta = Math.abs(gesture.dy - lastReportedPosRef.current.dy);
 
-        // Update if: (1) enough time passed (throttle) OR (2) significant movement since last update
-        // This ensures smooth 120fps updates while preventing excessive state updates
-        if (timeSinceLastDrag >= THROTTLE_MS || dxDelta >= MIN_MOVEMENT_PX || dyDelta >= MIN_MOVEMENT_PX) {
+        console.log(`[Handle] pos=${position}, dx=${gesture.dx}, dy=${gesture.dy}, timeSince=${timeSinceLastDrag}ms`);
+
+        // Update if enough time has passed (throttle)
+        if (timeSinceLastDrag >= THROTTLE_MS) {
           lastDragTimeRef.current = now;
           lastReportedPosRef.current = { dx: gesture.dx, dy: gesture.dy };
+          console.log(`[Handle] Sending onDrag`);
           onDrag(gesture.dx, gesture.dy);
         }
       },

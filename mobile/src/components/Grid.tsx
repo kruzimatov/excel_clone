@@ -39,7 +39,7 @@ interface GridProps {
   formulaInput: string;
   formulaSelectionMode: boolean;
   cellScale: number;
-  onSelectCell: (row: number, col: number) => void;
+  onSelectCell: (row: number, col: number, position?: { x: number; y: number }) => void;
   onSelectRange: (start: { row: number; col: number }, end: { row: number; col: number }) => void;
   onLongPressCell: (row: number, col: number, event: GestureResponderEvent) => void;
   onDoubleTapCell: (row: number, col: number) => void;
@@ -94,7 +94,7 @@ interface GridCellProps {
   rowHeight: number;
   cellFontSize: number;
   formulaInput: string;
-  onTap: (row: number, col: number) => void;
+  onTap: (row: number, col: number, event?: GestureResponderEvent) => void;
   onLongPress: (row: number, col: number, event: GestureResponderEvent) => void;
   onCellInputChange: (text: string) => void;
   onCellInputSubmit: () => void;
@@ -182,7 +182,7 @@ const GridCell = React.memo(function GridCell({
   return (
     <Pressable
       key={cellRef}
-      onPress={() => onTap(row, col)}
+      onPress={(event) => onTap(row, col, event)}
       onLongPress={(event) => onLongPress(row, col, event)}
       delayLongPress={250}
       style={[
@@ -377,7 +377,10 @@ export function Grid({
     }
   }, [selection.end.row]);
   const handleTap = useCallback(
-    (row: number, col: number) => {
+    (row: number, col: number, event?: GestureResponderEvent) => {
+      const pageX = event?.nativeEvent?.pageX || 0;
+      const pageY = event?.nativeEvent?.pageY || 0;
+      
       const now = Date.now();
       const prev = lastTap.current;
       if (prev && prev.row === row && prev.col === col && now - prev.time < 350) {
@@ -385,7 +388,7 @@ export function Grid({
         onDoubleTapCell(row, col);
       } else {
         lastTap.current = { row, col, time: now };
-        onSelectCell(row, col);
+        onSelectCell(row, col, { x: pageX, y: pageY });
       }
     },
     [onSelectCell, onDoubleTapCell]
@@ -397,30 +400,49 @@ export function Grid({
   const maxC = Math.max(selection.start.col, selection.end.col);
   const isMultiSelect = minR !== maxR || minC !== maxC;
 
-  // Stable drag callbacks via ref — tracks absolute position for smooth fractional cell movement
-  // Stores fractional pixel offsets so small drags still accumulate into cell changes
+  // Track drag state with fractional positioning
+  // Allows smooth tracking even when dragging small distances
   const dragStateRef = useRef({ 
     minR, maxR, minC, maxC, colWidth, rowHeight,
+    lastReportedColShift: 0,
+    lastReportedRowShift: 0,
   });
-  dragStateRef.current = { minR, maxR, minC, maxC, colWidth, rowHeight };
+  
+  // Reset shift tracking when selection changes (new drag started)
+  if (dragStateRef.current.minR !== minR || dragStateRef.current.maxR !== maxR || 
+      dragStateRef.current.minC !== minC || dragStateRef.current.maxC !== maxC) {
+    dragStateRef.current.lastReportedColShift = 0;
+    dragStateRef.current.lastReportedRowShift = 0;
+  }
+  dragStateRef.current = { minR, maxR, minC, maxC, colWidth, rowHeight, lastReportedColShift: dragStateRef.current.lastReportedColShift, lastReportedRowShift: dragStateRef.current.lastReportedRowShift };
 
   const handleBottomRightDrag = useCallback(
     (dx: number, dy: number) => {
       const s = dragStateRef.current;
       
-      // Calculate column shift using fractional pixels
+      // Calculate total offset as floating point - allows accumulation
       const totalColOffset = dx / s.colWidth;
-      const colShift = Math.floor(totalColOffset);
-      
-      // Calculate row shift using fractional pixels
       const totalRowOffset = dy / s.rowHeight;
+      
+      // Use floor to count only complete cells crossed
+      const colShift = Math.floor(totalColOffset);
       const rowShift = Math.floor(totalRowOffset);
       
-      // Only update if there's an actual cell change
-      if (colShift === 0 && rowShift === 0) return;
+      console.log(`[DragBR] dx=${dx}, dy=${dy}, colOff=${totalColOffset.toFixed(2)}, rowOff=${totalRowOffset.toFixed(2)}, shift=${colShift},${rowShift}`);
+      
+      // Only update if shift changed from last reported
+      if (colShift === s.lastReportedColShift && rowShift === s.lastReportedRowShift) {
+        console.log(`[DragBR] No change`);
+        return;
+      }
+      
+      // Update ref to track what we reported
+      dragStateRef.current.lastReportedColShift = colShift;
+      dragStateRef.current.lastReportedRowShift = rowShift;
       
       const newEndCol = Math.max(s.minC, Math.min(COL_COUNT - 1, s.maxC + colShift));
       const newEndRow = Math.max(s.minR, Math.min(ROW_COUNT - 1, s.maxR + rowShift));
+      console.log(`[DragBR] Result: col=${newEndCol}, row=${newEndRow}`);
       onSelectRange({ row: s.minR, col: s.minC }, { row: newEndRow, col: newEndCol });
     },
     [onSelectRange]
@@ -430,16 +452,19 @@ export function Grid({
     (dx: number, dy: number) => {
       const s = dragStateRef.current;
       
-      // Calculate column shift using fractional pixels (negative direction)
+      // Calculate total offset as floating point
       const totalColOffset = dx / s.colWidth;
-      const colShift = Math.floor(totalColOffset);
-      
-      // Calculate row shift using fractional pixels (negative direction)
       const totalRowOffset = dy / s.rowHeight;
+      
+      // Use floor to count only complete cells crossed
+      const colShift = Math.floor(totalColOffset);
       const rowShift = Math.floor(totalRowOffset);
       
-      // Only update if there's an actual cell change
-      if (colShift === 0 && rowShift === 0) return;
+      // Only update if shift changed from last reported
+      if (colShift === s.lastReportedColShift && rowShift === s.lastReportedRowShift) return;
+      
+      dragStateRef.current.lastReportedColShift = colShift;
+      dragStateRef.current.lastReportedRowShift = rowShift;
       
       const newStartCol = Math.max(0, Math.min(s.maxC, s.minC + colShift));
       const newStartRow = Math.max(0, Math.min(s.maxR, s.minR + rowShift));
@@ -551,12 +576,13 @@ export function Grid({
             keyExtractor={(item) => String(item)}
             getItemLayout={getItemLayout}
             initialNumToRender={20}
-            maxToRenderPerBatch={15}
-            windowSize={7}
+            maxToRenderPerBatch={10}
+            windowSize={5}
             removeClippedSubviews={true}
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
             style={{ height: flatListHeight }}
+            scrollEnabled={true}
           />
         </View>
       </ScrollView>

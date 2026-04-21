@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View, GestureResponderEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
@@ -131,12 +131,23 @@ export function SpreadsheetScreen() {
   const [rangeSelectionAnchor, setRangeSelectionAnchor] = useState<{ row: number; col: number } | null>(null);
   const [rangeSelectionEnd, setRangeSelectionEnd] = useState<{ row: number; col: number } | null>(null);
   const [storageReady, setStorageReady] = useState(false);
+  const [lastTapPosition, setLastTapPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     position: { x: number; y: number };
   }>({ visible: false, position: { x: 0, y: 0 } });
+
+  // Debounce pending range updates to prevent excessive re-renders during drag
+  const pendingRangeRef = useRef<{ start: { row: number; col: number }; end: { row: number; col: number } } | null>(null);
+  const rangeUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track range mode with ref to avoid stale state closures
+  const rangeModeRef = useRef<{ active: boolean; anchor: { row: number; col: number } | null }>({ 
+    active: false, 
+    anchor: null 
+  });
 
   // helper to read a cell's editable text (formula if present, else value)
   const getCellText = useCallback((row: number, col: number) => {
@@ -170,6 +181,15 @@ export function SpreadsheetScreen() {
     };
   }, [wb.loadWorkbook]);
 
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (rangeUpdateTimeoutRef.current) {
+        clearTimeout(rangeUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!storageReady) return;
 
@@ -189,28 +209,58 @@ export function SpreadsheetScreen() {
   }, [storageReady, wb.workbook, title, currentFileName]);
 
   // --- Cell interaction handlers ---
-  const handleSelectCell = useCallback((row: number, col: number) => {
-    // If in new range selection mode from workbook hook
+  const handleSelectCell = useCallback((row: number, col: number, position?: { x: number; y: number }) => {
+    if (position) {
+      setLastTapPosition(position);
+    }
+    
+    console.log(`[SelectCell] row=${row}, col=${col}, rangeMode=${rangeModeRef.current.active}, anchor=${JSON.stringify(rangeModeRef.current.anchor)}`);
+    
+    // If in workbook hook's range selection mode
     if (wb.rangeSelectionMode) {
+      console.log(`[SelectCell] Using workbook range mode`);
       wb.applyRangeSelection({ row, col });
       return;
     }
 
-    // If format painter is active, apply it
+    // If format painter is active
     if (wb.formatPainterStyle) {
+      console.log(`[SelectCell] Format painter active`);
       wb.applyFormatPainter();
+      rangeModeRef.current = { active: false, anchor: null };
       setRangeSelectionAnchor(null);
       setRangeSelectionEnd(null);
       return;
     }
 
-    if (rangeSelectionAnchor) {
-      const nextEnd = { row, col };
-      wb.setSelection({ start: rangeSelectionAnchor, end: nextEnd });
-      wb.setEditingCell(null);
-      wb.setFormulaInput(getCellText(row, col));
-      setRangeSelectionEnd(nextEnd);
-      return;
+    // If in range mode, handle first/second cell selection
+    if (rangeModeRef.current.active) {
+      if (rangeModeRef.current.anchor === null) {
+        // First cell in range mode
+        console.log(`[SelectCell] First cell in range mode: ${row},${col}`);
+        wb.setSelection({ start: { row, col }, end: { row, col } });
+        wb.setEditingCell(null);
+        wb.setFormulaInput(getCellText(row, col));
+        rangeModeRef.current.anchor = { row, col };
+        setRangeSelectionAnchor({ row, col });
+        return;
+      } else {
+        // Second cell in range mode - SHOW MENU
+        console.log(`[SelectCell] Second cell in range mode: ${row},${col}`);
+        const anchor = rangeModeRef.current.anchor;
+        wb.setSelection({ start: anchor, end: { row, col } });
+        wb.setEditingCell(null);
+        wb.setFormulaInput(getCellText(row, col));
+        rangeModeRef.current = { active: false, anchor: null };
+        setRangeSelectionAnchor(anchor);
+        setRangeSelectionEnd({ row, col });
+        // Show context menu after range is complete
+        if (position) {
+          console.log(`[SelectCell] Showing menu at ${position.x}, ${position.y}`);
+          setContextMenu({ visible: true, position });
+        }
+        return;
+      }
     }
 
     // Tapping the already-selected cell → enter edit mode (like Excel)
@@ -221,28 +271,28 @@ export function SpreadsheetScreen() {
       wb.selection.end.col === col &&
       !wb.editingCell
     ) {
+      console.log(`[SelectCell] Re-tapping same cell - enter edit mode`);
       wb.setEditingCell(cellKey(row, col));
       wb.setFormulaInput(getCellText(row, col));
       return;
     }
 
+    // Normal cell selection
+    console.log(`[SelectCell] Normal selection`);
     wb.setSelection({ start: { row, col }, end: { row, col } });
     wb.setEditingCell(null);
     wb.setFormulaInput(getCellText(row, col));
+    rangeModeRef.current = { active: false, anchor: null };
     setRangeSelectionAnchor(null);
     setRangeSelectionEnd(null);
-  }, [wb, getCellText, rangeSelectionAnchor]);
+  }, [wb, getCellText]);
 
   const handleSelectRange = useCallback((start: { row: number; col: number }, end: { row: number; col: number }) => {
-    if (rangeSelectionAnchor) {
-      wb.setSelection({ start: rangeSelectionAnchor, end });
-      setRangeSelectionEnd(end);
-      return;
-    }
-
+    // Update selection immediately during drag
+    // The throttle in SelectionHandle (16ms) already limits call frequency
+    // So we don't need additional debounce - that just delays the visual feedback
     wb.setSelection({ start, end });
-    setRangeSelectionEnd(null);
-  }, [wb, rangeSelectionAnchor]);
+  }, [wb]);
 
   const handleDoubleTapCell = useCallback((row: number, col: number) => {
     const key = cellKey(row, col);
@@ -346,25 +396,20 @@ export function SpreadsheetScreen() {
   }, [wb]);
 
   const handleToggleRangeSelection = useCallback(() => {
-    if (!rangeSelectionAnchor) {
-      setRangeSelectionAnchor({
-        row: wb.selection.start.row,
-        col: wb.selection.start.col,
-      });
-      setRangeSelectionEnd(null);
+    console.log(`[ToggleRange] Current active=${rangeModeRef.current.active}`);
+    
+    if (!rangeModeRef.current.active) {
+      console.log(`[ToggleRange] Starting range mode`);
+      rangeModeRef.current = { active: true, anchor: null };
+      setRangeSelectionAnchor({ row: -1, col: -1 });
       wb.setEditingCell(null);
-      return;
-    }
-
-    if (rangeSelectionEnd) {
+    } else {
+      console.log(`[ToggleRange] Canceling range mode`);
+      rangeModeRef.current = { active: false, anchor: null };
       setRangeSelectionAnchor(null);
       setRangeSelectionEnd(null);
-      return;
     }
-
-    setRangeSelectionAnchor(null);
-    setRangeSelectionEnd(null);
-  }, [rangeSelectionAnchor, rangeSelectionEnd, wb]);
+  }, [wb]);
 
   const handleDecreaseCellSize = useCallback(() => {
     setCellScale((current) => Math.max(MIN_CELL_SCALE, Number((current - CELL_SCALE_STEP).toFixed(2))));
@@ -550,7 +595,7 @@ export function SpreadsheetScreen() {
         canRedo={wb.canRedo}
       />
 
-      {/* Range selection mode UI */}
+      {/* Range selection mode UI - from workbook hook */}
       {wb.rangeSelectionMode && (
         <View style={styles.rangeSelectionBar}>
           <Text style={styles.rangeSelectionText}>
@@ -561,6 +606,51 @@ export function SpreadsheetScreen() {
             onPress={() => wb.cancelRangeSelection()}
           >
             <Text style={styles.rangeConfirmText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Range selection mode UI - waiting for FIRST cell */}
+      {rangeSelectionAnchor?.row === -1 && rangeSelectionAnchor?.col === -1 && !wb.rangeSelectionMode && (
+        <View style={styles.rangeSelectionBar}>
+          <Text style={styles.rangeSelectionText}>
+            📍 Range mode: tap FIRST cell
+          </Text>
+          <TouchableOpacity 
+            style={styles.rangeConfirmButton}
+            onPress={handleToggleRangeSelection}
+          >
+            <Text style={styles.rangeConfirmText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Range selection mode UI - waiting for SECOND cell */}
+      {rangeSelectionAnchor !== null && rangeSelectionAnchor.row !== -1 && rangeSelectionEnd === null && !wb.rangeSelectionMode && (
+        <View style={styles.rangeSelectionBar}>
+          <Text style={styles.rangeSelectionText}>
+            📍 Range mode: tap SECOND cell (anchor: {cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)})
+          </Text>
+          <TouchableOpacity 
+            style={styles.rangeConfirmButton}
+            onPress={handleToggleRangeSelection}
+          >
+            <Text style={styles.rangeConfirmText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Range selection complete */}
+      {rangeSelectionEnd !== null && !wb.rangeSelectionMode && (
+        <View style={styles.rangeSelectionBar}>
+          <Text style={styles.rangeSelectionText}>
+            ✓ Range selected: {cellKey(rangeSelectionAnchor!.row, rangeSelectionAnchor!.col)}:{cellKey(rangeSelectionEnd.row, rangeSelectionEnd.col)}
+          </Text>
+          <TouchableOpacity 
+            style={styles.rangeConfirmButton}
+            onPress={handleToggleRangeSelection}
+          >
+            <Text style={styles.rangeConfirmText}>Clear</Text>
           </TouchableOpacity>
         </View>
       )}
