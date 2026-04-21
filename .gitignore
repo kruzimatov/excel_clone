@@ -67,3 +67,4 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+/node_modules
