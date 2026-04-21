@@ -401,7 +401,7 @@ export function Grid({
   const isMultiSelect = minR !== maxR || minC !== maxC;
 
   // Track drag state with fractional positioning
-  // Allows smooth tracking even when dragging small distances
+  // Allows smooth tracking even when dr    agging small distances
   const dragStateRef = useRef({ 
     minR, maxR, minC, maxC, colWidth, rowHeight,
     lastReportedColShift: 0,
