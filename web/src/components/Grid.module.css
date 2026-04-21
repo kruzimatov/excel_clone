@@ -1,0 +1,175 @@
+.container {
+  background: #ffffff;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.selectionBar {
+  background: #e8f0fe;
+  border-bottom: 1px solid #c5d9f5;
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  position: relative;
+}
+
+.inner {
+  height: var(--grid-total-height);
+  position: relative;
+  width: var(--grid-width);
+}
+
+.headerRow {
+  display: flex;
+  left: 0;
+  position: sticky;
+  top: 0;
+  width: var(--grid-width);
+  z-index: 20;
+}
+
+.headerButton {
+  align-items: center;
+  background: #f8f9fa;
+  border: 0;
+  color: #5f6368;
+  display: flex;
+  font-size: var(--header-font-size);
+  font-weight: 700;
+  justify-content: center;
+}
+
+.cornerCell {
+  border-bottom: 1px solid #dadce0;
+  border-right: 1px solid #dadce0;
+  height: var(--header-height);
+  position: sticky;
+  left: 0;
+  width: var(--row-header-width);
+  z-index: 25;
+}
+
+.colHeader {
+  border-bottom: 1px solid #dadce0;
+  border-right: 1px solid #e8eaed;
+  height: var(--header-height);
+  position: relative;
+}
+
+.colResizeHandle {
+  bottom: 0;
+  cursor: col-resize;
+  position: absolute;
+  right: -3px;
+  top: 0;
+  width: 6px;
+  z-index: 30;
+}
+
+.colResizeHandle:hover {
+  background: #1a73e8;
+  opacity: 0.4;
+}
+
+.rowsLayer {
+  height: var(--grid-body-height);
+  position: relative;
+}
+
+.row {
+  display: flex;
+  left: 0;
+  position: absolute;
+  width: var(--grid-width);
+}
+
+.rowHeader {
+  border-bottom: 1px solid #e8eaed;
+  border-right: 1px solid #dadce0;
+  height: var(--row-height);
+  left: 0;
+  position: sticky;
+  width: var(--row-header-width);
+  z-index: 10;
+}
+
+.cell {
+  align-items: center;
+  border: 1px solid #e8eaed;
+  border-left-width: 0;
+  border-top-width: 0;
+  cursor: cell;
+  display: flex;
+  height: var(--row-height);
+  justify-content: flex-start;
+  overflow: visible;
+  padding: 0 10px;
+  position: relative;
+  text-align: left;
+}
+
+.cellPrimary {
+  box-shadow: inset 0 0 0 2px #1a73e8;
+  z-index: 11;
+}
+
+.selTop {
+  border-top: 2px solid #1a73e8;
+}
+
+.selBottom {
+  border-bottom: 2px solid #1a73e8;
+}
+
+.selLeft {
+  border-left: 2px solid #1a73e8;
+}
+
+.selRight {
+  border-right: 2px solid #1a73e8;
+}
+
+.numberCell {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.cellText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.cellInput {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  height: 100%;
+  outline: none;
+  padding: 0;
+  text-align: inherit;
+  width: 100%;
+}
+
+@media (min-width: 700px) and (max-width: 1400px) and (max-height: 1100px) {
+  .cell {
+    padding: 0 6px;
+  }
+
+  .selectionBar {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+}

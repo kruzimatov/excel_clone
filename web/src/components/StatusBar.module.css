@@ -1,0 +1,40 @@
+.container {
+  align-items: center;
+  background: #f1f3f4;
+  border-top: 1px solid #dadce0;
+  display: flex;
+  gap: 20px;
+  padding: 8px 16px;
+}
+
+.stat {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.label {
+  color: #5f6368;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.value {
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (min-width: 700px) and (max-width: 1400px) and (max-height: 1100px) {
+  .container {
+    padding: 4px 12px;
+  }
+
+  .label {
+    font-size: 10px;
+  }
+
+  .value {
+    font-size: 11px;
+  }
+}

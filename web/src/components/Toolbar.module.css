@@ -1,0 +1,433 @@
+.container {
+  background: #f6f8fb;
+  border-bottom: 1px solid #dce3ec;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolRow {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 12px 10px;
+}
+
+.groupCard {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 16px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 6px;
+}
+
+.actionChip {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 36px;
+  min-width: 62px;
+  padding: 6px 8px;
+}
+
+.actionChipDisabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.actionChipActive {
+  background: #eef4ff;
+}
+
+.actionMain {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.actionIcon {
+  color: #334155;
+  display: inline-flex;
+  font-size: 14px;
+  justify-content: center;
+  min-width: 16px;
+}
+
+.actionIconBold {
+  font-weight: 800;
+}
+
+.actionIconItalic {
+  font-style: italic;
+}
+
+.actionIconActive {
+  color: #1d4ed8;
+}
+
+.actionIconDisabled {
+  color: #94a3b8;
+}
+
+.swatchPreview {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: inline-flex;
+  height: 18px;
+  width: 18px;
+}
+
+.actionTextWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.actionLabel {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.actionLabelActive {
+  color: #1d4ed8;
+}
+
+.actionDetail {
+  color: #64748b;
+  font-size: 9px;
+}
+
+.actionDetailActive {
+  color: #1e40af;
+}
+
+.actionChevron {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.actionChevronActive {
+  color: #1d4ed8;
+}
+
+.formulaBar {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  padding: 2px 12px 12px;
+}
+
+.cellRefBox {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d6dee8;
+  border-radius: 12px;
+  color: #334155;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 42px;
+  min-width: 64px;
+  padding: 0 14px;
+}
+
+.fxBadge {
+  align-items: center;
+  background: #e8eef8;
+  border-radius: 12px;
+  color: #47637f;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.functionButton {
+  align-items: center;
+  background: #e8f5e9;
+  border: 0;
+  border-radius: 12px;
+  color: #217346;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.formulaInput {
+  background: #ffffff;
+  border: 1px solid #d6dee8;
+  border-radius: 12px;
+  color: #202124;
+  flex: 1;
+  font-size: 15px;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.submitButton {
+  align-items: center;
+  background: #1d4ed8;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.pickerCard {
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+  margin: 0 12px 12px;
+  padding: 14px;
+}
+
+.pickerHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.pickerTitle {
+  color: #334155;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.doneButton {
+  background: transparent;
+  border: 0;
+  color: #217346;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.colorGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+}
+
+.colorOption {
+  background: #f8fafc;
+  border: 1px solid #dce3ec;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.colorOptionActive {
+  background: #eef4ff;
+  border-color: #8ab4f8;
+}
+
+.colorTopRow {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.colorSwatch {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: inline-flex;
+  height: 24px;
+  width: 24px;
+}
+
+.colorCheck {
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.colorLabel {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.colorLabelActive {
+  color: #1d4ed8;
+}
+
+.listOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listOption {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.listOptionActive {
+  background: #eef4ff;
+  border-color: #8ab4f8;
+}
+
+.listIconWrap {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  color: #334155;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.listTextWrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listLabel {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.listHint {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.listCheck {
+  color: #1d4ed8;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .formulaBar {
+    display: grid;
+    grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1400px) and (max-height: 1100px) {
+  .toolRow {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .groupCard {
+    border-radius: 12px;
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .actionChip {
+    border-radius: 8px;
+    gap: 5px;
+    min-height: 30px;
+    min-width: 48px;
+    padding: 4px 6px;
+  }
+
+  .actionMain {
+    gap: 6px;
+  }
+
+  .actionLabel {
+    font-size: 10px;
+  }
+
+  .actionDetail {
+    font-size: 8px;
+  }
+
+  .actionIcon {
+    font-size: 12px;
+  }
+
+  .formulaBar {
+    gap: 6px;
+    padding: 2px 10px 6px;
+  }
+
+  .cellRefBox {
+    border-radius: 8px;
+    font-size: 12px;
+    min-height: 34px;
+    min-width: 52px;
+    padding: 0 10px;
+  }
+
+  .fxBadge {
+    border-radius: 8px;
+    font-size: 12px;
+    height: 34px;
+    width: 34px;
+  }
+
+  .functionButton {
+    border-radius: 8px;
+    font-size: 14px;
+    height: 34px;
+    width: 34px;
+  }
+
+  .formulaInput {
+    border-radius: 8px;
+    font-size: 13px;
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .submitButton {
+    border-radius: 8px;
+    font-size: 16px;
+    height: 34px;
+    width: 34px;
+  }
+}

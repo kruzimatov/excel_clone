@@ -9,6 +9,8 @@
     "start": "cd mobile && npm start",
     "ios": "cd mobile && npm run ios",
     "android": "cd mobile && npm run android",
-    "web": "cd mobile && npm run web"
+    "web": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "mobile:web": "cd mobile && npm run web"
   }
 }

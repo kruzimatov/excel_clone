@@ -1,0 +1,132 @@
+.container {
+  background: #f1f3f4;
+  border-top: 1px solid #dadce0;
+}
+
+.content {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px;
+}
+
+.tab {
+  align-items: center;
+  background: #e8eaed;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  min-width: 110px;
+  padding: 10px 18px;
+}
+
+.tabActive {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tabText {
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabTextActive {
+  color: #1a73e8;
+}
+
+.tabInput {
+  background: transparent;
+  border: 0;
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 84px;
+  text-align: center;
+}
+
+.addButton {
+  background: #e8eaed;
+  border: 0;
+  border-radius: 8px;
+  color: #5f6368;
+  cursor: pointer;
+  font-size: 22px;
+  min-height: 42px;
+  min-width: 42px;
+}
+
+.overlay {
+  inset: 0;
+  position: fixed;
+  z-index: 50;
+}
+
+.menu {
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 8px;
+  position: fixed;
+}
+
+.menuItem {
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: #202124;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: #f8fbff;
+}
+
+.menuItemDanger {
+  color: #cc0000;
+}
+
+@media (min-width: 700px) and (max-width: 1400px) and (max-height: 1100px) {
+  .content {
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .tab {
+    border-radius: 6px;
+    min-width: 90px;
+    padding: 6px 14px;
+  }
+
+  .tabText {
+    font-size: 12px;
+  }
+
+  .tabInput {
+    font-size: 12px;
+    min-width: 70px;
+  }
+
+  .addButton {
+    border-radius: 6px;
+    font-size: 18px;
+    min-height: 32px;
+    min-width: 32px;
+  }
+}

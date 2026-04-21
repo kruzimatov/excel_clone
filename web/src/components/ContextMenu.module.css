@@ -1,0 +1,123 @@
+.overlay {
+  background: rgba(0, 0, 0, 0.2);
+  inset: 0;
+  position: fixed;
+  z-index: 60;
+}
+
+.menu {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  padding: 8px 0;
+  position: fixed;
+  width: 260px;
+}
+
+.scrollArea {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  overflow-y: auto;
+}
+
+.sectionTitle {
+  color: #999999;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 12px 16px 8px;
+  text-transform: uppercase;
+}
+
+.menuItem {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  margin: 0 8px;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.menuItemHighlight {
+  background: #e8f0fe;
+}
+
+.menuIcon {
+  display: inline-flex;
+  font-size: 16px;
+  justify-content: center;
+  min-width: 24px;
+}
+
+.menuLabelWrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.menuLabel {
+  color: #202124;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.menuLabelDanger {
+  color: #cc0000;
+}
+
+.menuLabelHighlight {
+  color: #1a73e8;
+}
+
+.menuSubtitle {
+  color: #999999;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.divider {
+  background: #f0f0f0;
+  height: 1px;
+  margin: 8px 0;
+}
+
+.colorRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.colorDot {
+  border: 2px solid #f0f0f0;
+  border-radius: 16px;
+  cursor: pointer;
+  height: 32px;
+  width: 32px;
+}
+
+.currencyRow {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.currencyButton {
+  align-items: center;
+  background: #f5f5f5;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  color: #333333;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 40px;
+}

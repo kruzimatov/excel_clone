@@ -1,0 +1,553 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+
+import type { Cell, Selection } from '../types';
+import { cellKey, colToLetter, getDisplayValue } from '../utils/cells';
+import { classNames } from '../utils/classNames';
+import { getDynamicClassName } from '../utils/dynamicStyles';
+
+import { SelectionHandle } from './SelectionHandle';
+import styles from './Grid.module.css';
+
+const COL_COUNT = 26;
+const ROW_COUNT = 200;
+const COLUMN_DATA = Array.from({ length: COL_COUNT }, (_, index) => index);
+const ROW_DATA = Array.from({ length: ROW_COUNT }, (_, index) => index);
+
+function getBaseSizes(viewportWidth: number, viewportHeight: number) {
+  const isTablet = viewportWidth >= 700 && viewportWidth <= 1400 && viewportHeight <= 1100;
+  if (isTablet) {
+    return {
+      headerHeight: 24,
+      rowHeaderWidth: 38,
+      rowHeight: 28,
+      cellFontSize: 12,
+      headerFontSize: 10,
+      visibleColTarget: Math.min(8, Math.max(5, Math.floor(viewportWidth / 140))),
+    };
+  }
+  return {
+    headerHeight: 28,
+    rowHeaderWidth: 46,
+    rowHeight: 32,
+    cellFontSize: 13,
+    headerFontSize: 11,
+    visibleColTarget: 8,
+  };
+}
+
+interface GridProps {
+  cells: Record<string, Cell>;
+  selection: Selection;
+  editingCell: string | null;
+  formulaInput: string;
+  formulaSelectionMode: boolean;
+  cellScale: number;
+  onSelectCell: (row: number, col: number, options?: { position?: { x: number; y: number }; extendSelection?: boolean }) => void;
+  onSelectRange: (start: { row: number; col: number }, end: { row: number; col: number }) => void;
+  onLongPressCell: (row: number, col: number, position: { x: number; y: number }) => void;
+  onDoubleTapCell: (row: number, col: number) => void;
+  onCellInputChange: (text: string) => void;
+  onCellInputSubmit: () => void;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function Grid({
+  cells,
+  selection,
+  editingCell,
+  formulaInput,
+  formulaSelectionMode,
+  cellScale,
+  onSelectCell,
+  onSelectRange,
+  onLongPressCell,
+  onDoubleTapCell,
+  onCellInputChange,
+  onCellInputSubmit,
+}: GridProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const mouseDragRef = useRef<{
+    anchor: { row: number; col: number };
+    moved: boolean;
+    wasPrimarySelected: boolean;
+  } | null>(null);
+  const [colWidthOverrides, setColWidthOverrides] = useState<Record<number, number>>({});
+  const colResizeRef = useRef<{ col: number; startX: number; startWidth: number } | null>(null);
+  const submitGuardRef = useRef(false);
+  const touchStateRef = useRef<{
+    row: number;
+    col: number;
+    pointerId: number;
+    moved: boolean;
+    longPressTriggered: boolean;
+    timer: number | null;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
+  const [viewportSize, setViewportSize] = useState({ width: 1024, height: 640 });
+  const [scrollState, setScrollState] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return undefined;
+
+    const observer = new ResizeObserver(() => {
+      setViewportSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      });
+    });
+
+    observer.observe(element);
+    setViewportSize({
+      width: element.clientWidth,
+      height: element.clientHeight,
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const timer = touchStateRef.current?.timer;
+      if (timer !== null && timer !== undefined) {
+        window.clearTimeout(timer);
+      }
+      mouseDragRef.current = null;
+      touchStateRef.current = null;
+    };
+  }, []);
+
+  const screenW = viewportSize.width || window.innerWidth;
+  const screenH = viewportSize.height || window.innerHeight;
+  const baseSizes = getBaseSizes(window.innerWidth, window.innerHeight);
+
+  const rowHeaderWidth = Math.max(30, Math.round(baseSizes.rowHeaderWidth * cellScale));
+  const headerHeight = Math.max(20, Math.round(baseSizes.headerHeight * cellScale));
+  const rowHeight = Math.max(22, Math.round(baseSizes.rowHeight * cellScale));
+  const cellFontSize = Math.max(10, Math.round(baseSizes.cellFontSize * cellScale));
+  const headerFontSize = Math.max(9, Math.round(baseSizes.headerFontSize * cellScale));
+  const defaultColWidth = Math.max(
+    60,
+    Math.floor((screenW - rowHeaderWidth) / baseSizes.visibleColTarget * cellScale),
+  );
+
+  function getColWidth(col: number) {
+    return colWidthOverrides[col] ?? defaultColWidth;
+  }
+
+  const totalGridWidth = rowHeaderWidth + COLUMN_DATA.reduce((sum, col) => sum + getColWidth(col), 0);
+
+  const layoutClass = getDynamicClassName('grid-layout', {
+    '--row-header-width': `${rowHeaderWidth}px`,
+    '--header-height': `${headerHeight}px`,
+    '--row-height': `${rowHeight}px`,
+    '--col-width': `${defaultColWidth}px`,
+    '--cell-font-size': `${cellFontSize}px`,
+    '--header-font-size': `${headerFontSize}px`,
+    '--grid-width': `${totalGridWidth}px`,
+    '--grid-body-height': `${rowHeight * ROW_COUNT}px`,
+    '--grid-total-height': `${headerHeight + rowHeight * ROW_COUNT}px`,
+  });
+
+  function handleColResizeStart(col: number, event: ReactMouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    colResizeRef.current = { col, startX: event.clientX, startWidth: getColWidth(col) };
+
+    function onMove(e: MouseEvent) {
+      if (!colResizeRef.current) return;
+      const delta = e.clientX - colResizeRef.current.startX;
+      const newWidth = Math.max(50, colResizeRef.current.startWidth + delta);
+      setColWidthOverrides((prev) => ({ ...prev, [colResizeRef.current!.col]: newWidth }));
+    }
+    function onUp() {
+      colResizeRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  const minRow = Math.min(selection.start.row, selection.end.row);
+  const maxRow = Math.max(selection.start.row, selection.end.row);
+  const minCol = Math.min(selection.start.col, selection.end.col);
+  const maxCol = Math.max(selection.start.col, selection.end.col);
+  const isMultiSelect = minRow !== maxRow || minCol !== maxCol;
+
+  const bodyViewportHeight = Math.max(0, viewportSize.height - headerHeight);
+  const visibleStart = clamp(
+    Math.floor(scrollState.top / rowHeight) - 6,
+    0,
+    ROW_COUNT - 1,
+  );
+  const visibleEnd = clamp(
+    Math.ceil((scrollState.top + bodyViewportHeight) / rowHeight) + 6,
+    0,
+    ROW_COUNT - 1,
+  );
+  const visibleRows = ROW_DATA.slice(visibleStart, visibleEnd + 1);
+
+  function getCellFromClientPoint(clientX: number, clientY: number) {
+    const viewport = viewportRef.current;
+    if (!viewport) return null;
+
+    const rect = viewport.getBoundingClientRect();
+    const adjustedX = clientX - rect.left + viewport.scrollLeft - rowHeaderWidth;
+    const adjustedY = clientY - rect.top + viewport.scrollTop - headerHeight;
+
+    const row = clamp(Math.floor(adjustedY / rowHeight), 0, ROW_COUNT - 1);
+    let cumX = 0;
+    let col = 0;
+    for (let c = 0; c < COL_COUNT; c++) {
+      cumX += getColWidth(c);
+      if (adjustedX < cumX) { col = c; break; }
+      col = c;
+    }
+    return { row, col: clamp(col, 0, COL_COUNT - 1) };
+  }
+
+  function clearTouchState() {
+    const timer = touchStateRef.current?.timer;
+    if (timer !== null && timer !== undefined) {
+      window.clearTimeout(timer);
+    }
+    touchStateRef.current = null;
+  }
+
+  function handleMouseMove(event: MouseEvent) {
+    const dragState = mouseDragRef.current;
+    if (!dragState) return;
+
+    const nextCell = getCellFromClientPoint(event.clientX, event.clientY);
+    if (!nextCell) return;
+
+    dragState.moved = true;
+    onSelectRange(dragState.anchor, nextCell);
+  }
+
+  function handleMouseUp(event: MouseEvent) {
+    const dragState = mouseDragRef.current;
+    mouseDragRef.current = null;
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+
+    if (!dragState) return;
+
+    if (dragState.moved) {
+      const finalCell = getCellFromClientPoint(event.clientX, event.clientY) ?? dragState.anchor;
+      onSelectRange(dragState.anchor, finalCell);
+      return;
+    }
+
+    // Mouse didn't move — use the anchor cell (exact row/col from the button),
+    // not pixel recalculation which can be off by a row
+    const { row, col } = dragState.anchor;
+
+    if (dragState.wasPrimarySelected) {
+      onDoubleTapCell(row, col);
+      return;
+    }
+
+    onSelectCell(row, col, {
+      position: { x: event.clientX, y: event.clientY },
+    });
+  }
+
+  function handleCellMouseDown(row: number, col: number, event: ReactMouseEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return;
+    // Skip if this was triggered by a touch (touch uses pointer events path)
+    if (touchStateRef.current) return;
+    if (editingCell === cellKey(row, col)) return;
+
+    if (event.shiftKey) {
+      onSelectCell(row, col, {
+        extendSelection: true,
+        position: { x: event.clientX, y: event.clientY },
+      });
+      return;
+    }
+
+    const isPrimarySelected =
+      selection.start.row === row
+      && selection.start.col === col
+      && selection.end.row === row
+      && selection.end.col === col
+      && !editingCell;
+
+    mouseDragRef.current = {
+      anchor: { row, col },
+      moved: false,
+      wasPrimarySelected: isPrimarySelected,
+    };
+
+    // Don't re-select if already the primary cell — avoids flicker before entering edit mode
+    if (!isPrimarySelected) {
+      onSelectRange({ row, col }, { row, col });
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }
+
+  function handleTouchPointerDown(row: number, col: number, event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'touch') return;
+
+    const timer = window.setTimeout(() => {
+      touchStateRef.current = {
+        ...(touchStateRef.current ?? {
+          row,
+          col,
+          pointerId: event.pointerId,
+          moved: false,
+          startX: event.clientX,
+          startY: event.clientY,
+        }),
+        longPressTriggered: true,
+        timer: null,
+      };
+      onLongPressCell(row, col, { x: event.clientX, y: event.clientY });
+    }, 350);
+
+    touchStateRef.current = {
+      row,
+      col,
+      pointerId: event.pointerId,
+      moved: false,
+      longPressTriggered: false,
+      timer,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+  }
+
+  function handleTouchPointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'touch' || !touchStateRef.current) return;
+    if (touchStateRef.current.pointerId !== event.pointerId) return;
+
+    const movedX = Math.abs(event.clientX - touchStateRef.current.startX);
+    const movedY = Math.abs(event.clientY - touchStateRef.current.startY);
+    if (movedX > 10 || movedY > 10) {
+      touchStateRef.current.moved = true;
+      if (touchStateRef.current.timer !== null) {
+        window.clearTimeout(touchStateRef.current.timer);
+        touchStateRef.current.timer = null;
+      }
+    }
+  }
+
+  function handleTouchPointerEnd(row: number, col: number, event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'touch' || !touchStateRef.current) return;
+    if (touchStateRef.current.pointerId !== event.pointerId) return;
+
+    const touchState = touchStateRef.current;
+    clearTouchState();
+
+    if (touchState.longPressTriggered || touchState.moved) {
+      return;
+    }
+
+    const isPrimarySelected =
+      selection.start.row === row
+      && selection.start.col === col
+      && selection.end.row === row
+      && selection.end.col === col
+      && !editingCell;
+
+    if (isPrimarySelected) {
+      onDoubleTapCell(row, col);
+      return;
+    }
+
+    onSelectCell(row, col, {
+      position: { x: event.clientX, y: event.clientY },
+    });
+  }
+
+  function handleBottomRightDrag(dx: number, dy: number) {
+    const colShift = Math.round(dx / defaultColWidth);
+    const rowShift = Math.round(dy / rowHeight);
+    const newEndCol = clamp(maxCol + colShift, minCol, COL_COUNT - 1);
+    const newEndRow = clamp(maxRow + rowShift, minRow, ROW_COUNT - 1);
+    onSelectRange({ row: minRow, col: minCol }, { row: newEndRow, col: newEndCol });
+  }
+
+  function handleTopLeftDrag(dx: number, dy: number) {
+    const colShift = Math.round(dx / defaultColWidth);
+    const rowShift = Math.round(dy / rowHeight);
+    const newStartCol = clamp(minCol + colShift, 0, maxCol);
+    const newStartRow = clamp(minRow + rowShift, 0, maxRow);
+    onSelectRange({ row: newStartRow, col: newStartCol }, { row: maxRow, col: maxCol });
+  }
+
+  const selectionText = isMultiSelect
+    ? (formulaSelectionMode
+      ? `Range for formula: ${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`
+      : `${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`)
+    : null;
+
+  return (
+    <section className={classNames(styles.container, layoutClass)}>
+      {selectionText ? (
+        <div className={styles.selectionBar}>{selectionText}</div>
+      ) : null}
+
+      <div
+        ref={viewportRef}
+        className={styles.viewport}
+        onScroll={(event) => {
+          const target = event.currentTarget;
+          setScrollState({ top: target.scrollTop, left: target.scrollLeft });
+        }}
+      >
+        <div className={styles.inner}>
+          <div className={styles.headerRow}>
+            <button type="button" className={classNames(styles.cornerCell, styles.headerButton)} />
+            {COLUMN_DATA.map((col) => (
+              <button
+                key={col}
+                type="button"
+                className={classNames(styles.colHeader, styles.headerButton)}
+                style={{ width: getColWidth(col), flexBasis: getColWidth(col), flexShrink: 0, flexGrow: 0 }}
+                onClick={() => onSelectRange({ row: 0, col }, { row: ROW_COUNT - 1, col })}
+              >
+                {colToLetter(col)}
+                <span
+                  className={styles.colResizeHandle}
+                  onMouseDown={(e) => handleColResizeStart(col, e)}
+                />
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.rowsLayer}>
+            {visibleRows.map((row) => {
+              const rowClass = getDynamicClassName('grid-row', {
+                top: `${headerHeight + row * rowHeight}px`,
+              });
+
+              return (
+                <div key={row} className={classNames(styles.row, rowClass)}>
+                  <button
+                    type="button"
+                    className={classNames(styles.rowHeader, styles.headerButton)}
+                    onClick={() => onSelectRange({ row, col: 0 }, { row, col: COL_COUNT - 1 })}
+                  >
+                    {row + 1}
+                  </button>
+
+                  {COLUMN_DATA.map((col) => {
+                    const key = cellKey(row, col);
+                    const cell = cells[key];
+                    const selected = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+                    const primary = row === selection.start.row && col === selection.start.col;
+                    const editing = editingCell === key;
+                    const numericValue = typeof cell?.value === 'number' ? cell.value : null;
+                    const isNumber = numericValue !== null;
+                    const negative = numericValue !== null && numericValue < 0;
+                    const bgColor = cell?.style?.bgColor || (selected ? '#E8F0FE' : '#FFFFFF');
+                    const textColor = negative ? '#CC0000' : (cell?.style?.textColor || '#000000');
+
+                    const visualClass = getDynamicClassName('grid-cell', {
+                      backgroundColor: bgColor,
+                      color: textColor,
+                      fontWeight: cell?.style?.bold ? 700 : 400,
+                      fontStyle: cell?.style?.italic ? 'italic' : 'normal',
+                      fontSize: cell?.style?.fontSize ? `${cell.style.fontSize}px` : 'var(--cell-font-size)',
+                    });
+
+                    const cw = getColWidth(col);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        style={{ width: cw, flexBasis: cw, flexShrink: 0, flexGrow: 0 }}
+                        className={classNames(
+                          styles.cell,
+                          visualClass,
+                          selected && isMultiSelect && row === minRow && styles.selTop,
+                          selected && isMultiSelect && row === maxRow && styles.selBottom,
+                          selected && isMultiSelect && col === minCol && styles.selLeft,
+                          selected && isMultiSelect && col === maxCol && styles.selRight,
+                          primary && !isMultiSelect && styles.cellPrimary,
+                          isNumber && styles.numberCell,
+                        )}
+                        onMouseDown={(event) => handleCellMouseDown(row, col, event)}
+                        onPointerDown={(event) => handleTouchPointerDown(row, col, event)}
+                        onPointerMove={handleTouchPointerMove}
+                        onPointerUp={(event) => handleTouchPointerEnd(row, col, event)}
+                        onPointerCancel={clearTouchState}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          onLongPressCell(row, col, { x: event.clientX, y: event.clientY });
+                        }}
+                      >
+                        {editing ? (
+                          <input
+                            className={classNames(styles.cellInput, isNumber && styles.numberCell)}
+                            value={formulaInput}
+                            onChange={(event) => onCellInputChange(event.target.value)}
+                            onBlur={(event) => {
+                              if (submitGuardRef.current) return;
+                              const related = event.relatedTarget as HTMLElement | null;
+                              if (related?.classList.contains(styles.cell)) return;
+                              onCellInputSubmit();
+                            }}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                submitGuardRef.current = true;
+                                onCellInputSubmit();
+                                setTimeout(() => { submitGuardRef.current = false; }, 0);
+                              }
+                              if (event.key === 'Escape') {
+                                event.preventDefault();
+                                submitGuardRef.current = true;
+                                onCellInputChange('');
+                                onCellInputSubmit();
+                                setTimeout(() => { submitGuardRef.current = false; }, 0);
+                              }
+                              if (event.key === 'Tab') {
+                                event.preventDefault();
+                                submitGuardRef.current = true;
+                                onCellInputSubmit();
+                                setTimeout(() => { submitGuardRef.current = false; }, 0);
+                              }
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span className={styles.cellText}>{getDisplayValue(cell)}</span>
+                        )}
+
+                        {selected && row === maxRow && col === maxCol ? (
+                          <SelectionHandle position="bottom-right" onDrag={handleBottomRightDrag} onDragEnd={() => {}} />
+                        ) : null}
+
+                        {selected && row === minRow && col === minCol ? (
+                          <SelectionHandle position="top-left" onDrag={handleTopLeftDrag} onDragEnd={() => {}} />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
