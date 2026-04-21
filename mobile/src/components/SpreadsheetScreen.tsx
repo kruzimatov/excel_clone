@@ -21,7 +21,7 @@ import {
 } from '../utils/localStorage';
 import { Cell, Currency } from '../types';
 
-const MIN_CELL_SCALE = 0.8;
+const MIN_CELL_SCALE = 0.3;
 const MAX_CELL_SCALE = 1.4;
 const CELL_SCALE_STEP = 0.1;
 

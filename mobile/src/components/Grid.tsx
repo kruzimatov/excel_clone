@@ -424,9 +424,9 @@ export function Grid({
       const totalColOffset = dx / s.colWidth;
       const totalRowOffset = dy / s.rowHeight;
       
-      // Use floor to count only complete cells crossed
-      const colShift = Math.floor(totalColOffset);
-      const rowShift = Math.floor(totalRowOffset);
+      // Use round instead of floor for more responsive selection
+      const colShift = Math.round(totalColOffset);
+      const rowShift = Math.round(totalRowOffset);
       
       console.log(`[DragBR] dx=${dx}, dy=${dy}, colOff=${totalColOffset.toFixed(2)}, rowOff=${totalRowOffset.toFixed(2)}, shift=${colShift},${rowShift}`);
       
@@ -456,9 +456,9 @@ export function Grid({
       const totalColOffset = dx / s.colWidth;
       const totalRowOffset = dy / s.rowHeight;
       
-      // Use floor to count only complete cells crossed
-      const colShift = Math.floor(totalColOffset);
-      const rowShift = Math.floor(totalRowOffset);
+      // Use round instead of floor for more responsive selection
+      const colShift = Math.round(totalColOffset);
+      const rowShift = Math.round(totalRowOffset);
       
       // Only update if shift changed from last reported
       if (colShift === s.lastReportedColShift && rowShift === s.lastReportedRowShift) return;

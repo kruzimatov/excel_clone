@@ -1,0 +1,14 @@
+{
+  "name": "excel-clone",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "mobile"
+  ],
+  "scripts": {
+    "start": "cd mobile && npm start",
+    "ios": "cd mobile && npm run ios",
+    "android": "cd mobile && npm run android",
+    "web": "cd mobile && npm run web"
+  }
+}

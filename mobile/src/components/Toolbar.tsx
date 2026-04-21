@@ -507,15 +507,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionChip: {
-    minHeight: 54,
-    minWidth: 88,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    minHeight: 36,
+    minWidth: 60,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 6,
   },
   actionChipDisabled: {
     opacity: 0.4,
@@ -529,8 +529,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionIcon: {
-    width: 20,
-    fontSize: 18,
+    width: 16,
+    fontSize: 14,
     color: '#334155',
     textAlign: 'center',
   },
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   actionLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: '#334155',
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   actionDetail: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#64748B',
   },
   actionDetailActive: {

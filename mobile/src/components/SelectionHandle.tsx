@@ -12,7 +12,7 @@ export function SelectionHandle({ onDrag, onDragEnd, position }: SelectionHandle
   // Throttle drag updates to 16ms (~60fps) for performance
   const lastDragTimeRef = useRef(0);
   const lastReportedPosRef = useRef({ dx: 0, dy: 0 });
-  const THROTTLE_MS = 16; // 60fps
+  const THROTTLE_MS = 8; // Higher responsiveness for smoother selection
 
   const panResponder = useRef(
     PanResponder.create({
