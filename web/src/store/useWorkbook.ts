@@ -3,6 +3,11 @@ import { useCallback, useRef, useState } from 'react';
 import type { Cell, CellStyle, Selection, Sheet, Workbook } from '../types';
 import { cellKey, emptyCell } from '../utils/cells';
 import { evaluateAllFormulas, evaluateFormula } from '../utils/formulas';
+import {
+  DEFAULT_VISIBLE_ROW_COUNT,
+  ensureRowCountForIndex,
+  normalizeWorkbook,
+} from '../utils/workbookLayout';
 
 function createSheet(name: string): Sheet {
   return {
@@ -11,6 +16,7 @@ function createSheet(name: string): Sheet {
     cells: {},
     colWidths: {},
     rowHeights: {},
+    visibleRowCount: DEFAULT_VISIBLE_ROW_COUNT,
   };
 }
 
@@ -39,7 +45,7 @@ export interface ClipboardData {
 const MAX_UNDO = 30;
 
 export function useWorkbook() {
-  const [workbook, setWorkbook] = useState<Workbook>(createDefaultWorkbook);
+  const [workbook, setWorkbook] = useState<Workbook>(() => normalizeWorkbook(createDefaultWorkbook()));
   const [selection, setSelection] = useState<Selection>({
     start: { row: 0, col: 0 },
     end: { row: 0, col: 0 },
@@ -132,7 +138,11 @@ export function useWorkbook() {
         }
 
         const newCells = { ...sheet.cells, [key]: newCell };
-        return { ...sheet, cells: recalculate(newCells) };
+        return {
+          ...sheet,
+          cells: recalculate(newCells),
+          visibleRowCount: ensureRowCountForIndex(sheet.visibleRowCount, row),
+        };
       });
 
       return { ...previousWorkbook, sheets: newSheets };
@@ -299,7 +309,14 @@ export function useWorkbook() {
           }
         }
 
-        return { ...sheet, cells: recalculate(newCells) };
+        return {
+          ...sheet,
+          cells: recalculate(newCells),
+          visibleRowCount: ensureRowCountForIndex(
+            sheet.visibleRowCount,
+            targetRow + clipboard.rows - 1,
+          ),
+        };
       });
 
       return { ...previousWorkbook, sheets: newSheets };
@@ -338,13 +355,13 @@ export function useWorkbook() {
   }, [formatPainterStyle, selection, setCellStyle]);
 
   const loadWorkbook = useCallback((newWorkbook: Workbook) => {
-    const recalculatedWorkbook: Workbook = {
+    const recalculatedWorkbook = normalizeWorkbook({
       ...newWorkbook,
       sheets: newWorkbook.sheets.map((sheet) => ({
         ...sheet,
         cells: recalculate(sheet.cells),
       })),
-    };
+    });
 
     setWorkbook(recalculatedWorkbook);
     setSelection({ start: { row: 0, col: 0 }, end: { row: 0, col: 0 } });
@@ -458,6 +475,17 @@ export function useWorkbook() {
     setRangeStart(null);
   }, []);
 
+  const expandActiveSheetRows = useCallback((amount: number) => {
+    setWorkbook((previousWorkbook) => ({
+      ...previousWorkbook,
+      sheets: previousWorkbook.sheets.map((sheet) => (
+        sheet.id === previousWorkbook.activeSheetId
+          ? { ...sheet, visibleRowCount: sheet.visibleRowCount + amount }
+          : sheet
+      )),
+    }));
+  }, []);
+
   return {
     workbook,
     activeSheet,
@@ -494,5 +522,8 @@ export function useWorkbook() {
     startRangeSelection,
     applyRangeSelection,
     cancelRangeSelection,
+    expandActiveSheetRows,
   };
 }
+
+export type WorkbookStore = ReturnType<typeof useWorkbook>;

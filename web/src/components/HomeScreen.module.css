@@ -1,0 +1,422 @@
+.page {
+  background:
+    radial-gradient(circle at top right, rgba(66, 133, 244, 0.12), transparent 30%),
+    radial-gradient(circle at left center, rgba(33, 115, 70, 0.1), transparent 28%),
+    linear-gradient(180deg, #f5f8f2 0%, #f4f7fb 42%, #ffffff 100%);
+  color: #202124;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0 auto 22px;
+  max-width: 1280px;
+}
+
+.brandRow {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+}
+
+.brandMark {
+  align-items: center;
+  background: linear-gradient(135deg, #217346 0%, #1a9c5f 100%);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(33, 115, 70, 0.18);
+  color: #ffffff;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 28px;
+  font-weight: 800;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+}
+
+.kicker,
+.sectionEyebrow {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.05;
+  margin: 0 0 12px;
+  max-width: 840px;
+}
+
+.subtitle {
+  color: #4d5156;
+  font-size: 16px;
+  margin: 0;
+  max-width: 760px;
+}
+
+.quickActions {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.actionCard {
+  border: 1px solid rgba(32, 33, 36, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 20px 48px rgba(32, 33, 36, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 176px;
+  padding: 18px;
+}
+
+.actionCard h2,
+.sectionTitle {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+
+.actionCard p,
+.driveCopy,
+.sectionMeta,
+.emptyState span,
+.fileInfo span {
+  color: #5f6368;
+  margin: 0;
+}
+
+.actionCardGreen {
+  background: linear-gradient(180deg, #eff9f2 0%, #ffffff 100%);
+}
+
+.actionCardBlue {
+  background: linear-gradient(180deg, #eef5ff 0%, #ffffff 100%);
+}
+
+.actionCardGold {
+  background: linear-gradient(180deg, #fff8ea 0%, #ffffff 100%);
+}
+
+.actionButton,
+.primaryButton,
+.filterButton,
+.fileRow,
+.driveFileRow {
+  font: inherit;
+}
+
+.actionButton,
+.primaryButton {
+  align-items: center;
+  background: #202124;
+  border: 0;
+  border-radius: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  white-space: nowrap;
+}
+
+.actionButton:disabled,
+.primaryButton:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.content {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  margin: 0 auto;
+  max-width: 1280px;
+}
+
+.mainColumn,
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.resumeCard,
+.listCard,
+.driveCard {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(32, 33, 36, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 22px 50px rgba(32, 33, 36, 0.08);
+}
+
+.resumeCard {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.sectionMeta {
+  font-size: 14px;
+}
+
+.sectionHeader,
+.sectionHeaderCompact {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.filterButton {
+  background: #eef2f7;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #3c4043;
+  cursor: pointer;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.filterButtonActive {
+  background: #d7eadb;
+  border-color: #9cc7a9;
+  color: #134f2d;
+}
+
+.listCard {
+  overflow: hidden;
+}
+
+.fileRow,
+.driveFileRow {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(32, 33, 36, 0.08);
+  cursor: pointer;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px 22px;
+  text-align: left;
+  width: 100%;
+}
+
+.fileRow:first-child,
+.driveFileRow:first-child {
+  border-top: 0;
+}
+
+.fileRow:hover,
+.driveFileRow:hover {
+  background: #f7faff;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fileInfo strong {
+  font-size: 16px;
+}
+
+.fileMeta {
+  align-items: flex-end;
+  color: #5f6368;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sourcePill,
+.driveStatus {
+  align-items: center;
+  background: #eef2f7;
+  border-radius: 999px;
+  color: #3c4043;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 0 12px;
+}
+
+.driveStatusActive {
+  background: #d7eadb;
+  color: #134f2d;
+}
+
+.driveCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+
+.driveCopy {
+  line-height: 1.6;
+}
+
+.warningBox {
+  background: #fff6dd;
+  border: 1px solid #f2c94c;
+  border-radius: 16px;
+  color: #6d4c00;
+  padding: 14px 16px;
+}
+
+.driveActions {
+  display: flex;
+}
+
+.driveList {
+  border-top: 1px solid rgba(32, 33, 36, 0.08);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.linkHint {
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 4px 4px;
+}
+
+@media (max-width: 1120px) {
+  .quickActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 18px;
+  }
+
+  .quickActions {
+    grid-template-columns: 1fr;
+  }
+
+  .resumeCard,
+  .sectionHeader,
+  .sectionHeaderCompact,
+  .fileRow,
+  .driveFileRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fileMeta {
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1180px) and (max-height: 1100px) {
+  .page {
+    padding: 16px;
+  }
+
+  .hero {
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .brandMark {
+    border-radius: 14px;
+    font-size: 22px;
+    height: 52px;
+    width: 52px;
+  }
+
+  .title {
+    font-size: clamp(24px, 3.2vw, 38px);
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    max-width: 680px;
+  }
+
+  .quickActions {
+    gap: 12px;
+  }
+
+  .actionCard {
+    border-radius: 18px;
+    gap: 12px;
+    min-height: 144px;
+    padding: 16px;
+  }
+
+  .actionCard h2,
+  .sectionTitle {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .actionCard p,
+  .driveCopy,
+  .sectionMeta,
+  .emptyState span,
+  .fileInfo span {
+    font-size: 13px;
+  }
+
+  .actionButton,
+  .primaryButton,
+  .filterButton {
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
+  .resumeCard,
+  .listCard,
+  .driveCard {
+    border-radius: 18px;
+  }
+
+  .resumeCard,
+  .driveCard {
+    padding: 16px;
+  }
+
+  .fileRow,
+  .driveFileRow {
+    padding: 14px 16px;
+  }
+}

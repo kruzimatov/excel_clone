@@ -1,6 +1,7 @@
 export type CellValue = string | number | null;
 
 export type Currency = 'USD' | 'RUB' | 'UZS' | 'EUR' | '';
+export type FileSource = 'local' | 'device' | 'google-drive';
 
 export interface CellStyle {
   bold?: boolean;
@@ -24,11 +25,29 @@ export interface Sheet {
   cells: Record<string, Cell>;
   colWidths: Record<number, number>;
   rowHeights: Record<number, number>;
+  visibleRowCount: number;
 }
 
 export interface Workbook {
   sheets: Sheet[];
   activeSheetId: string;
+}
+
+export interface FileDescriptor {
+  source: FileSource;
+  name: string;
+  fileId?: string;
+  fileHandleId?: string;
+  driveFolderId?: string;
+  mimeType?: string;
+  modifiedAt?: string;
+  lastOpenedAt?: string;
+}
+
+export interface RecentFileEntry extends FileDescriptor {
+  id: string;
+  title: string;
+  currentFileName: string | null;
 }
 
 export interface Selection {

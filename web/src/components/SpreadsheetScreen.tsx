@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import * as XLSX from 'xlsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useWorkbook } from '../store/useWorkbook';
-import type { Cell, Currency, Workbook } from '../types';
+import type { FileDescriptor } from '../types';
 import { cellKey, letterToCol } from '../utils/cells';
-import { loadWorkbookDraft, saveWorkbookDraft } from '../utils/localStorage';
+import { ROW_INCREMENT_OPTIONS } from '../utils/workbookLayout';
+import type { WorkbookStore } from '../store/useWorkbook';
 
 import { ContextMenu } from './ContextMenu';
 import { Grid } from './Grid';
@@ -16,64 +15,6 @@ import styles from './SpreadsheetScreen.module.css';
 const MIN_CELL_SCALE = 0.3;
 const MAX_CELL_SCALE = 1.4;
 const CELL_SCALE_STEP = 0.1;
-const MAX_ROW_INDEX = 199;
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[/\\?%*:|"<>]/g, '_').trim();
-}
-
-function baseNameNoExt(name: string) {
-  return name.replace(/\.xlsx$/i, '');
-}
-
-function normalizeColor(value?: string) {
-  if (!value) return undefined;
-  const clean = value.replace('#', '');
-  if (clean.length === 8) return `#${clean.slice(2).toUpperCase()}`;
-  if (clean.length === 6) return `#${clean.toUpperCase()}`;
-  return undefined;
-}
-
-interface XlsxCellStyle {
-  font?: {
-    bold?: boolean;
-    italic?: boolean;
-    color?: { rgb?: string };
-  };
-  fill?: {
-    fgColor?: { rgb?: string };
-  };
-  numFmt?: string;
-}
-
-function stripHash(value?: string) {
-  return value?.replace('#', '').toUpperCase();
-}
-
-function detectCurrency(format?: string): Currency {
-  if (!format) return '';
-  const upper = format.toUpperCase();
-  if (upper.includes('$')) return 'USD';
-  if (upper.includes('₽') || upper.includes('RUB')) return 'RUB';
-  if (upper.includes('UZS') || upper.includes("SO'M") || upper.includes('СУМ')) return 'UZS';
-  if (upper.includes('€') || upper.includes('EUR')) return 'EUR';
-  return '';
-}
-
-function getCurrencyFormat(currency: Currency) {
-  switch (currency) {
-    case 'USD':
-      return '$#,##0.00';
-    case 'RUB':
-      return '#,##0.00 ₽';
-    case 'UZS':
-      return '#,##0.00 "UZS"';
-    case 'EUR':
-      return '€#,##0.00';
-    default:
-      return undefined;
-  }
-}
 
 function formatRangeRef(
   start: { row: number; col: number },
@@ -88,134 +29,64 @@ function formatRangeRef(
   return startRef === endRef ? startRef : `${startRef}:${endRef}`;
 }
 
-function sheetjsToCells(worksheet: XLSX.WorkSheet): Record<string, Cell> {
-  const cells: Record<string, Cell> = {};
-  if (!worksheet || !worksheet['!ref']) return cells;
-
-  const range = XLSX.utils.decode_range(worksheet['!ref']);
-
-  for (let row = range.s.r; row <= range.e.r; row += 1) {
-    for (let col = range.s.c; col <= range.e.c; col += 1) {
-      const address = XLSX.utils.encode_cell({ r: row, c: col });
-      const workbookCell = worksheet[address] as (XLSX.CellObject & { s?: XlsxCellStyle }) | undefined;
-      if (!workbookCell) continue;
-
-      const cell: Cell = {
-        value: null,
-        display: typeof workbookCell.w === 'string' ? workbookCell.w : undefined,
-        style: {},
-      };
-
-      if (workbookCell.f) {
-        cell.formula = `=${workbookCell.f}`;
-      }
-
-      if (workbookCell.v !== undefined && workbookCell.v !== null) {
-        cell.value = typeof workbookCell.v === 'boolean'
-          ? (workbookCell.v ? 1 : 0)
-          : workbookCell.v as string | number;
-      }
-
-      const workbookStyle = workbookCell.s;
-      if (workbookStyle?.font?.bold) cell.style.bold = true;
-      if (workbookStyle?.font?.italic) cell.style.italic = true;
-
-      const textColor = normalizeColor(workbookStyle?.font?.color?.rgb);
-      const bgColor = normalizeColor(workbookStyle?.fill?.fgColor?.rgb);
-      if (textColor) cell.style.textColor = textColor;
-      if (bgColor) cell.style.bgColor = bgColor;
-
-      const currency = detectCurrency(String(workbookCell.z ?? workbookStyle?.numFmt ?? ''));
-      if (currency) cell.style.currency = currency;
-
-      if (cell.value !== null || cell.formula) {
-        cells[address] = cell;
-      }
-    }
-  }
-
-  return cells;
+function formatSourceLabel(file: FileDescriptor | null) {
+  if (!file) return 'Local browser draft';
+  if (file.source === 'google-drive') return 'Google Drive';
+  if (file.source === 'device') return 'Device file';
+  return 'Local browser draft';
 }
 
-function cellsToSheetjs(cells: Record<string, Cell>): XLSX.WorkSheet {
-  const worksheet: XLSX.WorkSheet = {};
-  let maxRow = -1;
-  let maxCol = -1;
-
-  for (const [address, cell] of Object.entries(cells)) {
-    if (cell.value === null && !cell.formula) continue;
-
-    const decoded = XLSX.utils.decode_cell(address);
-    maxRow = Math.max(maxRow, decoded.r);
-    maxCol = Math.max(maxCol, decoded.c);
-
-    const outputCell = {} as XLSX.CellObject & { s?: Record<string, unknown> };
-    if (cell.formula) {
-      outputCell.f = cell.formula.startsWith('=') ? cell.formula.slice(1) : cell.formula;
-    }
-    if (cell.value !== undefined && cell.value !== null) {
-      outputCell.v = cell.value;
-      outputCell.t = typeof cell.value === 'number' ? 'n' : 's';
-    }
-
-    const style: Record<string, unknown> = {};
-    const font: Record<string, unknown> = {};
-    if (cell.style.bold) font.bold = true;
-    if (cell.style.italic) font.italic = true;
-    if (cell.style.textColor) font.color = { rgb: stripHash(cell.style.textColor) };
-    if (Object.keys(font).length > 0) style.font = font;
-
-    if (cell.style.bgColor) {
-      style.fill = {
-        patternType: 'solid',
-        fgColor: { rgb: stripHash(cell.style.bgColor) },
-      };
-    }
-
-    style.alignment = {
-      horizontal: typeof cell.value === 'number' ? 'right' : 'left',
-      vertical: 'center',
-    };
-
-    if (Object.keys(style).length > 0) {
-      outputCell.s = style;
-    }
-
-    const currencyFormat = getCurrencyFormat(cell.style.currency ?? '');
-    if (currencyFormat) {
-      outputCell.z = currencyFormat;
-    }
-
-    worksheet[address] = outputCell;
-  }
-
-  worksheet['!ref'] = maxRow >= 0 && maxCol >= 0
-    ? XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxRow, c: maxCol } })
-    : 'A1';
-
-  return worksheet;
+interface SpreadsheetScreenProps {
+  workbookStore: WorkbookStore;
+  title: string;
+  currentFileName: string | null;
+  activeFile: FileDescriptor | null;
+  localSaving: boolean;
+  driveSaving: boolean;
+  driveConfigured: boolean;
+  driveConnected: boolean;
+  onGoHome: () => void;
+  onOpenFromDevice: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+  onSaveToDrive: () => void;
+  onConnectDrive: () => void;
 }
 
-export function SpreadsheetScreen() {
-  const workbookStore = useWorkbook();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Stable ref to always read the latest store without re-triggering effects
+export function SpreadsheetScreen({
+  workbookStore,
+  title,
+  currentFileName,
+  activeFile,
+  localSaving,
+  driveSaving,
+  driveConfigured,
+  driveConnected,
+  onGoHome,
+  onOpenFromDevice,
+  onSave,
+  onSaveAs,
+  onSaveToDrive,
+  onConnectDrive,
+}: SpreadsheetScreenProps) {
   const storeRef = useRef(workbookStore);
-  storeRef.current = workbookStore;
+  const saveRef = useRef(onSave);
 
-  const [title, setTitle] = useState('Hisobot');
-  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [formulaSelectionMode] = useState(false);
   const [cellScale, setCellScale] = useState(1);
   const [rangeSelectionAnchor, setRangeSelectionAnchor] = useState<{ row: number; col: number } | null>(null);
   const [rangeSelectionEnd, setRangeSelectionEnd] = useState<{ row: number; col: number } | null>(null);
-  const [storageReady, setStorageReady] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     position: { x: number; y: number };
   }>({ visible: false, position: { x: 0, y: 0 } });
+
+  const maxRowIndex = Math.max(0, workbookStore.activeSheet.visibleRowCount - 1);
+
+  useEffect(() => {
+    storeRef.current = workbookStore;
+    saveRef.current = onSave;
+  }, [onSave, workbookStore]);
 
   function getCellText(row: number, col: number) {
     const key = cellKey(row, col);
@@ -226,50 +97,6 @@ export function SpreadsheetScreen() {
         : ''
     );
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function restoreDraft() {
-      try {
-        const draft = await loadWorkbookDraft();
-        if (cancelled || !draft) return;
-
-        storeRef.current.loadWorkbook(draft.workbook);
-        setTitle(draft.title || 'Hisobot');
-        setCurrentFileName(draft.currentFileName);
-      } finally {
-        if (!cancelled) {
-          setStorageReady(true);
-        }
-      }
-    }
-
-    void restoreDraft();
-
-    return () => {
-      cancelled = true;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!storageReady) return undefined;
-
-    const timeoutId = window.setTimeout(() => {
-      try {
-        saveWorkbookDraft({
-          workbook: workbookStore.workbook,
-          title,
-          currentFileName,
-        });
-      } catch (error) {
-        console.warn('Failed to save workbook draft', error);
-      }
-    }, 450);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [storageReady, workbookStore.workbook, title, currentFileName]);
 
   useEffect(() => {
     function handleGlobalKeyDown(event: KeyboardEvent) {
@@ -308,6 +135,11 @@ export function SpreadsheetScreen() {
           store.redo();
           return;
         }
+        if (key === 's') {
+          event.preventDefault();
+          saveRef.current();
+          return;
+        }
       }
 
       if (isEditableTarget) return;
@@ -322,6 +154,7 @@ export function SpreadsheetScreen() {
 
       const currentRow = store.selection.start.row;
       const currentCol = store.selection.start.col;
+      const activeMaxRowIndex = Math.max(0, store.activeSheet.visibleRowCount - 1);
 
       if (event.key === 'ArrowUp') {
         event.preventDefault();
@@ -332,8 +165,8 @@ export function SpreadsheetScreen() {
       } else if (event.key === 'ArrowDown') {
         event.preventDefault();
         store.setSelection({
-          start: { row: Math.min(MAX_ROW_INDEX, currentRow + 1), col: currentCol },
-          end: { row: Math.min(MAX_ROW_INDEX, currentRow + 1), col: currentCol },
+          start: { row: Math.min(activeMaxRowIndex, currentRow + 1), col: currentCol },
+          end: { row: Math.min(activeMaxRowIndex, currentRow + 1), col: currentCol },
         });
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
@@ -354,8 +187,8 @@ export function SpreadsheetScreen() {
       } else if (event.key === 'Enter') {
         event.preventDefault();
         store.setSelection({
-          start: { row: Math.min(MAX_ROW_INDEX, currentRow + 1), col: currentCol },
-          end: { row: Math.min(MAX_ROW_INDEX, currentRow + 1), col: currentCol },
+          start: { row: Math.min(activeMaxRowIndex, currentRow + 1), col: currentCol },
+          end: { row: Math.min(activeMaxRowIndex, currentRow + 1), col: currentCol },
         });
       }
     }
@@ -369,7 +202,6 @@ export function SpreadsheetScreen() {
     col: number,
     options?: { position?: { x: number; y: number }; extendSelection?: boolean },
   ) {
-    // Commit any pending edit before moving to a new cell
     if (workbookStore.editingCell) {
       const match = workbookStore.editingCell.match(/^([A-Z]+)(\d+)$/);
       if (match) {
@@ -463,7 +295,7 @@ export function SpreadsheetScreen() {
     setRangeSelectionAnchor(null);
     setRangeSelectionEnd(null);
 
-    const nextRow = Math.min(MAX_ROW_INDEX, commitRow + 1);
+    const nextRow = Math.min(maxRowIndex, commitRow + 1);
     workbookStore.setSelection({
       start: { row: nextRow, col: commitCol },
       end: { row: nextRow, col: commitCol },
@@ -478,7 +310,7 @@ export function SpreadsheetScreen() {
     workbookStore.setCellValue(row, col, workbookStore.formulaInput);
     workbookStore.setEditingCell(null);
 
-    const nextRow = Math.min(MAX_ROW_INDEX, row + 1);
+    const nextRow = Math.min(maxRowIndex, row + 1);
     workbookStore.setSelection({
       start: { row: nextRow, col },
       end: { row: nextRow, col },
@@ -510,7 +342,7 @@ export function SpreadsheetScreen() {
     workbookStore.setCellStyle(rows, cols, { textColor: color });
   }
 
-  function handleCurrencyPress(currency: Currency) {
+  function handleCurrencyPress(currency: '' | 'USD' | 'RUB' | 'UZS' | 'EUR') {
     const { rows, cols } = workbookStore.getSelectedRange();
     workbookStore.setCellStyle(rows, cols, { currency });
   }
@@ -525,101 +357,6 @@ export function SpreadsheetScreen() {
 
     setRangeSelectionAnchor(null);
     setRangeSelectionEnd(null);
-  }
-
-  function handleOpenClick() {
-    fileInputRef.current?.click();
-  }
-
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const importedWorkbook = XLSX.read(arrayBuffer, {
-        type: 'array',
-        cellStyles: true,
-        cellNF: true,
-        cellText: true,
-      });
-
-      const sheets = importedWorkbook.SheetNames.map((sheetName, index) => ({
-        id: `imported-${index}-${Date.now()}`,
-        name: sheetName,
-        cells: sheetjsToCells(importedWorkbook.Sheets[sheetName]),
-        colWidths: {},
-        rowHeights: {},
-      }));
-
-      if (sheets.length === 0) {
-        window.alert('No sheets found in this workbook.');
-        return;
-      }
-
-      const workbook: Workbook = {
-        sheets,
-        activeSheetId: sheets[0].id,
-      };
-
-      workbookStore.loadWorkbook(workbook);
-      setRangeSelectionAnchor(null);
-      setRangeSelectionEnd(null);
-      setTitle(baseNameNoExt(file.name) || 'Workbook');
-      setCurrentFileName(sanitizeFileName(file.name));
-    } catch (error) {
-      window.alert(`Open failed: ${String(error)}`);
-    } finally {
-      event.target.value = '';
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true);
-
-    try {
-      const outputWorkbook = XLSX.utils.book_new();
-
-      for (const sheet of workbookStore.workbook.sheets) {
-        const worksheet = cellsToSheetjs(sheet.cells);
-        const safeName = sheet.name.slice(0, 31).replace(/[/\\?*[\]]/g, '_') || 'Sheet';
-        XLSX.utils.book_append_sheet(outputWorkbook, worksheet, safeName);
-      }
-
-      const data = XLSX.write(outputWorkbook, {
-        bookType: 'xlsx',
-        type: 'array',
-        cellStyles: true,
-      });
-
-      const suggested = currentFileName
-        || sanitizeFileName(`${title || 'Workbook'}.xlsx`)
-        || `Workbook-${Date.now()}.xlsx`;
-      const fileName = suggested.endsWith('.xlsx') ? suggested : `${suggested}.xlsx`;
-
-      const blob = new Blob([data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-
-      saveWorkbookDraft({
-        workbook: workbookStore.workbook,
-        title,
-        currentFileName: fileName,
-      });
-      setCurrentFileName(fileName);
-    } catch (error) {
-      window.alert(`Save failed: ${String(error)}`);
-    } finally {
-      setSaving(false);
-    }
   }
 
   const primaryCellRef = cellKey(workbookStore.selection.start.row, workbookStore.selection.start.col);
@@ -643,31 +380,46 @@ export function SpreadsheetScreen() {
         ? 'Tap first cell'
         : `Pick end from ${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}`;
 
+  const driveButtonLabel = !driveConfigured
+    ? 'Drive setup'
+    : driveConnected
+      ? (driveSaving ? 'Saving to Drive...' : 'Save to Drive')
+      : 'Connect Drive';
+
   return (
     <div className={styles.container}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        className={styles.hiddenInput}
-        onChange={handleFileChange}
-      />
-
       <header className={styles.topBar}>
         <div className={styles.brandBlock}>
+          <button type="button" className={styles.homeButton} onClick={onGoHome}>
+            Home
+          </button>
           <div className={styles.brandBadge}>X</div>
           <div className={styles.titleWrap}>
             <h1 className={styles.title}>{title}</h1>
-            <p className={styles.subtitle}>Responsive workbook for iPad Safari and desktop</p>
+            <p className={styles.subtitle}>
+              {formatSourceLabel(activeFile)}
+              {currentFileName ? ` • ${currentFileName}` : ''}
+            </p>
           </div>
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.openButton} onClick={handleOpenClick} disabled={saving}>
+          <button type="button" className={styles.openButton} onClick={onOpenFromDevice}>
             Open
           </button>
-          <button type="button" className={styles.saveButton} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+          <button type="button" className={styles.saveButton} onClick={onSave} disabled={localSaving}>
+            {localSaving ? 'Saving...' : 'Save'}
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={onSaveAs}>
+            Save As
+          </button>
+          <button
+            type="button"
+            className={styles.driveButton}
+            onClick={driveConnected ? onSaveToDrive : onConnectDrive}
+            disabled={!driveConfigured || driveSaving}
+          >
+            {driveButtonLabel}
           </button>
         </div>
       </header>
@@ -752,6 +504,7 @@ export function SpreadsheetScreen() {
         formulaInput={workbookStore.formulaInput}
         formulaSelectionMode={formulaSelectionMode}
         cellScale={cellScale}
+        rowCount={workbookStore.activeSheet.visibleRowCount}
         onSelectCell={handleSelectCell}
         onSelectRange={(start, end) => workbookStore.setSelection({ start, end })}
         onLongPressCell={handleLongPressCell}
@@ -759,6 +512,25 @@ export function SpreadsheetScreen() {
         onCellInputChange={workbookStore.setFormulaInput}
         onCellInputSubmit={handleCellInputSubmit}
       />
+
+      <div className={styles.rowBar}>
+        <div>
+          <strong>{workbookStore.activeSheet.visibleRowCount} rows visible</strong>
+          <span className={styles.rowHint}>New sheets start at 50 rows. Add more only when you need them.</span>
+        </div>
+        <div className={styles.rowActions}>
+          {ROW_INCREMENT_OPTIONS.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => workbookStore.expandActiveSheetRows(amount)}
+            >
+              Add {amount} rows
+            </button>
+          ))}
+        </div>
+      </div>
 
       <StatusBar cells={workbookStore.activeSheet.cells} selection={workbookStore.selection} />
 

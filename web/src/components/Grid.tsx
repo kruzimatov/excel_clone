@@ -15,9 +15,7 @@ import { SelectionHandle } from './SelectionHandle';
 import styles from './Grid.module.css';
 
 const COL_COUNT = 26;
-const ROW_COUNT = 200;
 const COLUMN_DATA = Array.from({ length: COL_COUNT }, (_, index) => index);
-const ROW_DATA = Array.from({ length: ROW_COUNT }, (_, index) => index);
 
 function getBaseSizes(viewportWidth: number, viewportHeight: number) {
   const isTablet = viewportWidth >= 700 && viewportWidth <= 1400 && viewportHeight <= 1100;
@@ -48,6 +46,7 @@ interface GridProps {
   formulaInput: string;
   formulaSelectionMode: boolean;
   cellScale: number;
+  rowCount: number;
   onSelectCell: (row: number, col: number, options?: { position?: { x: number; y: number }; extendSelection?: boolean }) => void;
   onSelectRange: (start: { row: number; col: number }, end: { row: number; col: number }) => void;
   onLongPressCell: (row: number, col: number, position: { x: number; y: number }) => void;
@@ -67,6 +66,7 @@ export function Grid({
   formulaInput,
   formulaSelectionMode,
   cellScale,
+  rowCount,
   onSelectCell,
   onSelectRange,
   onLongPressCell,
@@ -129,7 +129,6 @@ export function Grid({
   }, []);
 
   const screenW = viewportSize.width || window.innerWidth;
-  const screenH = viewportSize.height || window.innerHeight;
   const baseSizes = getBaseSizes(window.innerWidth, window.innerHeight);
 
   const rowHeaderWidth = Math.max(30, Math.round(baseSizes.rowHeaderWidth * cellScale));
@@ -147,6 +146,8 @@ export function Grid({
   }
 
   const totalGridWidth = rowHeaderWidth + COLUMN_DATA.reduce((sum, col) => sum + getColWidth(col), 0);
+  const safeRowCount = Math.max(1, rowCount);
+  const rowData = Array.from({ length: safeRowCount }, (_, index) => index);
 
   const layoutClass = getDynamicClassName('grid-layout', {
     '--row-header-width': `${rowHeaderWidth}px`,
@@ -156,8 +157,8 @@ export function Grid({
     '--cell-font-size': `${cellFontSize}px`,
     '--header-font-size': `${headerFontSize}px`,
     '--grid-width': `${totalGridWidth}px`,
-    '--grid-body-height': `${rowHeight * ROW_COUNT}px`,
-    '--grid-total-height': `${headerHeight + rowHeight * ROW_COUNT}px`,
+    '--grid-body-height': `${rowHeight * safeRowCount}px`,
+    '--grid-total-height': `${headerHeight + rowHeight * safeRowCount}px`,
   });
 
   function handleColResizeStart(col: number, event: ReactMouseEvent) {
@@ -190,14 +191,14 @@ export function Grid({
   const visibleStart = clamp(
     Math.floor(scrollState.top / rowHeight) - 6,
     0,
-    ROW_COUNT - 1,
+    safeRowCount - 1,
   );
   const visibleEnd = clamp(
     Math.ceil((scrollState.top + bodyViewportHeight) / rowHeight) + 6,
     0,
-    ROW_COUNT - 1,
+    safeRowCount - 1,
   );
-  const visibleRows = ROW_DATA.slice(visibleStart, visibleEnd + 1);
+  const visibleRows = rowData.slice(visibleStart, visibleEnd + 1);
 
   function getCellFromClientPoint(clientX: number, clientY: number) {
     const viewport = viewportRef.current;
@@ -207,7 +208,7 @@ export function Grid({
     const adjustedX = clientX - rect.left + viewport.scrollLeft - rowHeaderWidth;
     const adjustedY = clientY - rect.top + viewport.scrollTop - headerHeight;
 
-    const row = clamp(Math.floor(adjustedY / rowHeight), 0, ROW_COUNT - 1);
+    const row = clamp(Math.floor(adjustedY / rowHeight), 0, safeRowCount - 1);
     let cumX = 0;
     let col = 0;
     for (let c = 0; c < COL_COUNT; c++) {
@@ -378,7 +379,7 @@ export function Grid({
     const colShift = Math.round(dx / defaultColWidth);
     const rowShift = Math.round(dy / rowHeight);
     const newEndCol = clamp(maxCol + colShift, minCol, COL_COUNT - 1);
-    const newEndRow = clamp(maxRow + rowShift, minRow, ROW_COUNT - 1);
+    const newEndRow = clamp(maxRow + rowShift, minRow, safeRowCount - 1);
     onSelectRange({ row: minRow, col: minCol }, { row: newEndRow, col: newEndCol });
   }
 
@@ -419,7 +420,7 @@ export function Grid({
                 type="button"
                 className={classNames(styles.colHeader, styles.headerButton)}
                 style={{ width: getColWidth(col), flexBasis: getColWidth(col), flexShrink: 0, flexGrow: 0 }}
-                onClick={() => onSelectRange({ row: 0, col }, { row: ROW_COUNT - 1, col })}
+                onClick={() => onSelectRange({ row: 0, col }, { row: safeRowCount - 1, col })}
               >
                 {colToLetter(col)}
                 <span
