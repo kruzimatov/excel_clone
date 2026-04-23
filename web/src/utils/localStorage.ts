@@ -72,7 +72,7 @@ function normalizeRecentFile(value: unknown): RecentFileEntry | null {
     || typeof value.title !== 'string'
     || (typeof value.currentFileName !== 'string' && value.currentFileName !== null)
     || typeof value.name !== 'string'
-    || (value.source !== 'device' && value.source !== 'google-drive')
+    || (value.source !== 'device' && value.source !== 'google-drive' && value.source !== 'appscript')
   ) {
     return null;
   }

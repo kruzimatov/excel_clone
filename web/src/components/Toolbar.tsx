@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { CELL_COLORS, CURRENCIES, type Currency } from '../types';
 import { classNames } from '../utils/classNames';
@@ -9,6 +9,14 @@ import { FunctionSuggestions } from './FunctionSuggestions';
 import styles from './Toolbar.module.css';
 
 type ActiveMenu = 'fill' | 'text' | 'currency' | null;
+type MenuPlacement = 'top' | 'bottom';
+
+interface MenuAnchor {
+  top: number;
+  left: number;
+  width: number;
+  placement: MenuPlacement;
+}
 
 const FILL_OPTIONS = [
   { value: CELL_COLORS[0], label: 'White' },
@@ -35,6 +43,12 @@ const TEXT_COLOR_OPTIONS = [
   { value: '#00AA00', label: 'Bright green' },
   { value: '#3366FF', label: 'Accent blue' },
 ];
+
+const MENU_DIMENSIONS: Record<Exclude<ActiveMenu, null>, { width: number; height: number }> = {
+  fill: { width: 296, height: 250 },
+  text: { width: 296, height: 250 },
+  currency: { width: 320, height: 320 },
+};
 
 interface ToolbarProps {
   selectedCellRef: string;
@@ -100,6 +114,8 @@ export function Toolbar({
   const [activeMenu, setActiveMenu] = useState<ActiveMenu>(null);
   const [suggestions, setSuggestions] = useState<FunctionMeta[]>([]);
   const [showAllFunctions, setShowAllFunctions] = useState(false);
+  const [menusOpen, setMenusOpen] = useState(true);
+  const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
 
   const currentCurrency = CURRENCIES.find((item) => item.key === selectedCurrency) ?? null;
   const fillLabel = FILL_OPTIONS.find((option) => option.value === selectedFillColor)?.label ?? 'Custom';
@@ -130,88 +146,160 @@ export function Toolbar({
     onFormulaFocus();
   }
 
-  function toggleMenu(menu: Exclude<ActiveMenu, null>) {
-    setActiveMenu((current) => (current === menu ? null : menu));
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`.${styles.pickerCard}`) && !target?.closest(`.${styles.dropdownGroup}`)) {
+        setActiveMenu(null);
+        setMenuAnchor(null);
+      }
+    }
+
+    function syncPopoverPosition() {
+      if (!activeMenu) return;
+      setActiveMenu(null);
+      setMenuAnchor(null);
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('resize', syncPopoverPosition);
+    window.addEventListener('scroll', syncPopoverPosition, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('resize', syncPopoverPosition);
+      window.removeEventListener('scroll', syncPopoverPosition, true);
+    };
+  }, [activeMenu]);
+
+  function toggleMenu(menu: Exclude<ActiveMenu, null>, event: ReactMouseEvent<HTMLButtonElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const dimensions = MENU_DIMENSIONS[menu];
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 12;
+    const availableBelow = viewportHeight - rect.bottom - margin;
+    const placement: MenuPlacement = availableBelow >= dimensions.height ? 'bottom' : 'top';
+    const nextTop =
+      placement === 'bottom'
+        ? Math.min(viewportHeight - dimensions.height - margin, rect.bottom + 8)
+        : Math.max(margin, rect.top - dimensions.height - 8);
+    const desiredLeft = rect.left;
+    const nextLeft = Math.max(
+      margin,
+      Math.min(desiredLeft, viewportWidth - dimensions.width - margin),
+    );
+
+    setActiveMenu((current) => {
+      const nextValue = current === menu ? null : menu;
+      setMenuAnchor(
+        nextValue
+          ? {
+              top: nextTop,
+              left: nextLeft,
+              width: dimensions.width,
+              placement,
+            }
+          : null,
+      );
+      return nextValue;
+    });
   }
 
   return (
     <section className={styles.container}>
-      <div className={styles.toolRow}>
-        <div className={styles.groupCard}>
-          <ActionChip
-            icon="[]"
-            label={rangeSelectionLabel}
-            detail={rangeSelectionDetail}
-            onPress={onToggleRangeSelection}
-            active={rangeSelectionActive}
-          />
+      <div className={styles.toolbarHeader}>
+        <div className={styles.toolbarHeaderText}>
+          <strong>Top menus</strong>
+          <span>Open and close the toolbar controls without losing the formula bar.</span>
         </div>
+        <button
+          type="button"
+          className={styles.toolbarToggle}
+          onClick={() => setMenusOpen((current) => !current)}
+        >
+          {menusOpen ? 'Hide menus' : 'Show menus'}
+        </button>
+      </div>
 
-        <div className={styles.groupCard}>
-          <ActionChip
-            icon="-"
-            label="Cells"
-            detail={`${cellScalePercent}%`}
-            onPress={onDecreaseCellSize}
-            disabled={!canDecreaseCellSize}
-          />
-          <ActionChip
-            icon="+"
-            label="Cells"
-            detail="Bigger"
-            onPress={onIncreaseCellSize}
-            disabled={!canIncreaseCellSize}
-          />
-        </div>
+      <div className={classNames(styles.toolPanels, !menusOpen && styles.toolPanelsClosed)}>
+        <div className={styles.toolRow}>
+          <div className={styles.groupCard}>
+            <ActionChip
+              icon="[]"
+              label={rangeSelectionLabel}
+              detail={rangeSelectionDetail}
+              onPress={onToggleRangeSelection}
+              active={rangeSelectionActive}
+            />
+          </div>
 
-        <div className={styles.groupCard}>
-          <ActionChip icon="↶" label="Undo" onPress={onUndoPress} disabled={!canUndo} />
-          <ActionChip icon="↷" label="Redo" onPress={onRedoPress} disabled={!canRedo} />
-        </div>
+          <div className={styles.groupCard}>
+            <ActionChip
+              icon="-"
+              label="Cells"
+              detail={`${cellScalePercent}%`}
+              onPress={onDecreaseCellSize}
+              disabled={!canDecreaseCellSize}
+            />
+            <ActionChip
+              icon="+"
+              label="Cells"
+              detail="Bigger"
+              onPress={onIncreaseCellSize}
+              disabled={!canIncreaseCellSize}
+            />
+          </div>
 
-        <div className={styles.groupCard}>
-          <ActionChip
-            icon="B"
-            label="Bold"
-            onPress={onBoldPress}
-            active={isBoldActive}
-            emphasis="bold"
-          />
-          <ActionChip
-            icon="I"
-            label="Italic"
-            onPress={onItalicPress}
-            active={isItalicActive}
-            emphasis="italic"
-          />
-        </div>
+          <div className={styles.groupCard}>
+            <ActionChip icon="↶" label="Undo" onPress={onUndoPress} disabled={!canUndo} />
+            <ActionChip icon="↷" label="Redo" onPress={onRedoPress} disabled={!canRedo} />
+          </div>
 
-        <div className={styles.groupCard}>
-          <ActionChip
-            label="Fill"
-            detail={fillLabel}
-            onPress={() => toggleMenu('fill')}
-            active={activeMenu === 'fill'}
-            dropdown
-            swatchColor={selectedFillColor}
-          />
-          <ActionChip
-            icon="A"
-            label="Text"
-            detail={textLabel}
-            onPress={() => toggleMenu('text')}
-            active={activeMenu === 'text'}
-            dropdown
-            iconColor={selectedTextColor}
-          />
-          <ActionChip
-            icon={currentCurrency?.symbol ?? '123'}
-            label="Currency"
-            detail={currentCurrency?.label ?? 'Plain number'}
-            onPress={() => toggleMenu('currency')}
-            active={activeMenu === 'currency'}
-            dropdown
-          />
+          <div className={styles.groupCard}>
+            <ActionChip
+              icon="B"
+              label="Bold"
+              onPress={onBoldPress}
+              active={isBoldActive}
+              emphasis="bold"
+            />
+            <ActionChip
+              icon="I"
+              label="Italic"
+              onPress={onItalicPress}
+              active={isItalicActive}
+              emphasis="italic"
+            />
+          </div>
+
+          <div className={classNames(styles.groupCard, styles.dropdownGroup)}>
+            <ActionChip
+              label="Fill"
+              detail={fillLabel}
+              onPress={(event) => toggleMenu('fill', event)}
+              active={activeMenu === 'fill'}
+              dropdown
+              swatchColor={selectedFillColor}
+            />
+            <ActionChip
+              icon="A"
+              label="Text"
+              detail={textLabel}
+              onPress={(event) => toggleMenu('text', event)}
+              active={activeMenu === 'text'}
+              dropdown
+              iconColor={selectedTextColor}
+            />
+            <ActionChip
+              icon={currentCurrency?.symbol ?? '123'}
+              label="Currency"
+              detail={currentCurrency?.label ?? 'Plain number'}
+              onPress={(event) => toggleMenu('currency', event)}
+              active={activeMenu === 'currency'}
+              dropdown
+            />
+          </div>
         </div>
       </div>
 
@@ -248,8 +336,16 @@ export function Toolbar({
         visible={suggestions.length > 0 || showAllFunctions}
       />
 
-      {activeMenu === 'fill' ? (
-        <PickerCard title="Fill color" onClose={() => setActiveMenu(null)}>
+      {activeMenu === 'fill' && menuAnchor ? (
+        <PickerCard
+          title="Fill color"
+          onClose={() => {
+            setActiveMenu(null);
+            setMenuAnchor(null);
+          }}
+          anchor={menuAnchor}
+          compact
+        >
           <div className={styles.colorGrid}>
             {FILL_OPTIONS.map((option) => (
               <ColorOption
@@ -260,6 +356,7 @@ export function Toolbar({
                 onPress={() => {
                   onColorPress(option.value);
                   setActiveMenu(null);
+                  setMenuAnchor(null);
                 }}
               />
             ))}
@@ -267,8 +364,16 @@ export function Toolbar({
         </PickerCard>
       ) : null}
 
-      {activeMenu === 'text' ? (
-        <PickerCard title="Text color" onClose={() => setActiveMenu(null)}>
+      {activeMenu === 'text' && menuAnchor ? (
+        <PickerCard
+          title="Text color"
+          onClose={() => {
+            setActiveMenu(null);
+            setMenuAnchor(null);
+          }}
+          anchor={menuAnchor}
+          compact
+        >
           <div className={styles.colorGrid}>
             {TEXT_COLOR_OPTIONS.map((option) => (
               <ColorOption
@@ -279,6 +384,7 @@ export function Toolbar({
                 onPress={() => {
                   onTextColorPress(option.value);
                   setActiveMenu(null);
+                  setMenuAnchor(null);
                 }}
               />
             ))}
@@ -286,8 +392,16 @@ export function Toolbar({
         </PickerCard>
       ) : null}
 
-      {activeMenu === 'currency' ? (
-        <PickerCard title="Currency format" onClose={() => setActiveMenu(null)}>
+      {activeMenu === 'currency' && menuAnchor ? (
+        <PickerCard
+          title="Currency format"
+          onClose={() => {
+            setActiveMenu(null);
+            setMenuAnchor(null);
+          }}
+          anchor={menuAnchor}
+          compact
+        >
           <div className={styles.listOptions}>
             {[...CURRENCIES, { key: '', symbol: '123', label: 'Plain number' }].map((currency) => (
               <button
@@ -300,6 +414,7 @@ export function Toolbar({
                 onClick={() => {
                   onCurrencyPress(currency.key as Currency);
                   setActiveMenu(null);
+                  setMenuAnchor(null);
                 }}
               >
                 <span className={styles.listIconWrap}>{currency.symbol}</span>
@@ -336,7 +451,7 @@ function ActionChip({
   icon?: string;
   label: string;
   detail?: string;
-  onPress: () => void;
+  onPress: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   active?: boolean;
   dropdown?: boolean;
@@ -398,14 +513,25 @@ function ActionChip({
 function PickerCard({
   title,
   onClose,
+  anchor,
+  compact,
   children,
 }: {
   title: string;
   onClose: () => void;
+  anchor: MenuAnchor;
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className={styles.pickerCard}>
+    <div
+      className={classNames(
+        styles.pickerCard,
+        compact && styles.pickerCardCompact,
+        anchor.placement === 'top' && styles.pickerCardTop,
+      )}
+      style={{ top: anchor.top, left: anchor.left, width: anchor.width }}
+    >
       <div className={styles.pickerHeader}>
         <span className={styles.pickerTitle}>{title}</span>
         <button type="button" className={styles.doneButton} onClick={onClose}>

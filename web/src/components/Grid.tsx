@@ -397,6 +397,125 @@ export function Grid({
       : `${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`)
     : null;
 
+  const showPinnedFirstRow = scrollState.top > rowHeight && safeRowCount > 1;
+
+  function renderRow(row: number, pinned = false) {
+    const rowClass = pinned
+      ? ''
+      : getDynamicClassName('grid-row', {
+        top: `${headerHeight + row * rowHeight}px`,
+      });
+
+    return (
+      <div key={`${pinned ? 'pinned' : 'row'}-${row}`} className={classNames(styles.row, rowClass, pinned && styles.rowPinned)}>
+        <button
+          type="button"
+          className={classNames(styles.rowHeader, styles.headerButton)}
+          onClick={() => onSelectRange({ row, col: 0 }, { row, col: COL_COUNT - 1 })}
+        >
+          {row + 1}
+        </button>
+
+        {COLUMN_DATA.map((col) => {
+          const key = cellKey(row, col);
+          const cell = cells[key];
+          const selected = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+          const primary = row === selection.start.row && col === selection.start.col;
+          const editing = editingCell === key;
+          const numericValue = typeof cell?.value === 'number' ? cell.value : null;
+          const isNumber = numericValue !== null;
+          const negative = numericValue !== null && numericValue < 0;
+          const bgColor = cell?.style?.bgColor || (selected ? '#E8F0FE' : '#FFFFFF');
+          const textColor = negative ? '#CC0000' : (cell?.style?.textColor || '#000000');
+
+          const visualClass = getDynamicClassName('grid-cell', {
+            backgroundColor: bgColor,
+            color: textColor,
+            fontWeight: cell?.style?.bold ? 700 : 400,
+            fontStyle: cell?.style?.italic ? 'italic' : 'normal',
+            fontSize: cell?.style?.fontSize ? `${cell.style.fontSize}px` : 'var(--cell-font-size)',
+          });
+
+          const cw = getColWidth(col);
+          return (
+            <button
+              key={key}
+              type="button"
+              style={{ width: cw, flexBasis: cw, flexShrink: 0, flexGrow: 0 }}
+              className={classNames(
+                styles.cell,
+                visualClass,
+                selected && isMultiSelect && row === minRow && styles.selTop,
+                selected && isMultiSelect && row === maxRow && styles.selBottom,
+                selected && isMultiSelect && col === minCol && styles.selLeft,
+                selected && isMultiSelect && col === maxCol && styles.selRight,
+                primary && !isMultiSelect && styles.cellPrimary,
+                isNumber && styles.numberCell,
+              )}
+              onMouseDown={(event) => handleCellMouseDown(row, col, event)}
+              onPointerDown={(event) => handleTouchPointerDown(row, col, event)}
+              onPointerMove={handleTouchPointerMove}
+              onPointerUp={(event) => handleTouchPointerEnd(row, col, event)}
+              onPointerCancel={clearTouchState}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                onLongPressCell(row, col, { x: event.clientX, y: event.clientY });
+              }}
+            >
+              {editing ? (
+                <input
+                  className={classNames(styles.cellInput, isNumber && styles.numberCell)}
+                  value={formulaInput}
+                  onChange={(event) => onCellInputChange(event.target.value)}
+                  onBlur={(event) => {
+                    if (submitGuardRef.current) return;
+                    const related = event.relatedTarget as HTMLElement | null;
+                    if (related?.classList.contains(styles.cell)) return;
+                    onCellInputSubmit();
+                  }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      submitGuardRef.current = true;
+                      onCellInputSubmit();
+                      setTimeout(() => { submitGuardRef.current = false; }, 0);
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      submitGuardRef.current = true;
+                      onCellInputChange('');
+                      onCellInputSubmit();
+                      setTimeout(() => { submitGuardRef.current = false; }, 0);
+                    }
+                    if (event.key === 'Tab') {
+                      event.preventDefault();
+                      submitGuardRef.current = true;
+                      onCellInputSubmit();
+                      setTimeout(() => { submitGuardRef.current = false; }, 0);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <span className={styles.cellText}>{getDisplayValue(cell)}</span>
+              )}
+
+              {selected && row === maxRow && col === maxCol ? (
+                <SelectionHandle position="bottom-right" onDrag={handleBottomRightDrag} onDragEnd={() => {}} />
+              ) : null}
+
+              {selected && row === minRow && col === minCol ? (
+                <SelectionHandle position="top-left" onDrag={handleTopLeftDrag} onDragEnd={() => {}} />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <section className={classNames(styles.container, layoutClass)}>
       {selectionText ? (
@@ -431,121 +550,14 @@ export function Grid({
             ))}
           </div>
 
+          {showPinnedFirstRow ? (
+            <div className={styles.pinnedRowOverlay}>
+              {renderRow(0, true)}
+            </div>
+          ) : null}
+
           <div className={styles.rowsLayer}>
-            {visibleRows.map((row) => {
-              const rowClass = getDynamicClassName('grid-row', {
-                top: `${headerHeight + row * rowHeight}px`,
-              });
-
-              return (
-                <div key={row} className={classNames(styles.row, rowClass)}>
-                  <button
-                    type="button"
-                    className={classNames(styles.rowHeader, styles.headerButton)}
-                    onClick={() => onSelectRange({ row, col: 0 }, { row, col: COL_COUNT - 1 })}
-                  >
-                    {row + 1}
-                  </button>
-
-                  {COLUMN_DATA.map((col) => {
-                    const key = cellKey(row, col);
-                    const cell = cells[key];
-                    const selected = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
-                    const primary = row === selection.start.row && col === selection.start.col;
-                    const editing = editingCell === key;
-                    const numericValue = typeof cell?.value === 'number' ? cell.value : null;
-                    const isNumber = numericValue !== null;
-                    const negative = numericValue !== null && numericValue < 0;
-                    const bgColor = cell?.style?.bgColor || (selected ? '#E8F0FE' : '#FFFFFF');
-                    const textColor = negative ? '#CC0000' : (cell?.style?.textColor || '#000000');
-
-                    const visualClass = getDynamicClassName('grid-cell', {
-                      backgroundColor: bgColor,
-                      color: textColor,
-                      fontWeight: cell?.style?.bold ? 700 : 400,
-                      fontStyle: cell?.style?.italic ? 'italic' : 'normal',
-                      fontSize: cell?.style?.fontSize ? `${cell.style.fontSize}px` : 'var(--cell-font-size)',
-                    });
-
-                    const cw = getColWidth(col);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        style={{ width: cw, flexBasis: cw, flexShrink: 0, flexGrow: 0 }}
-                        className={classNames(
-                          styles.cell,
-                          visualClass,
-                          selected && isMultiSelect && row === minRow && styles.selTop,
-                          selected && isMultiSelect && row === maxRow && styles.selBottom,
-                          selected && isMultiSelect && col === minCol && styles.selLeft,
-                          selected && isMultiSelect && col === maxCol && styles.selRight,
-                          primary && !isMultiSelect && styles.cellPrimary,
-                          isNumber && styles.numberCell,
-                        )}
-                        onMouseDown={(event) => handleCellMouseDown(row, col, event)}
-                        onPointerDown={(event) => handleTouchPointerDown(row, col, event)}
-                        onPointerMove={handleTouchPointerMove}
-                        onPointerUp={(event) => handleTouchPointerEnd(row, col, event)}
-                        onPointerCancel={clearTouchState}
-                        onContextMenu={(event) => {
-                          event.preventDefault();
-                          onLongPressCell(row, col, { x: event.clientX, y: event.clientY });
-                        }}
-                      >
-                        {editing ? (
-                          <input
-                            className={classNames(styles.cellInput, isNumber && styles.numberCell)}
-                            value={formulaInput}
-                            onChange={(event) => onCellInputChange(event.target.value)}
-                            onBlur={(event) => {
-                              if (submitGuardRef.current) return;
-                              const related = event.relatedTarget as HTMLElement | null;
-                              if (related?.classList.contains(styles.cell)) return;
-                              onCellInputSubmit();
-                            }}
-                            onMouseDown={(event) => event.stopPropagation()}
-                            onClick={(event) => event.stopPropagation()}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault();
-                                submitGuardRef.current = true;
-                                onCellInputSubmit();
-                                setTimeout(() => { submitGuardRef.current = false; }, 0);
-                              }
-                              if (event.key === 'Escape') {
-                                event.preventDefault();
-                                submitGuardRef.current = true;
-                                onCellInputChange('');
-                                onCellInputSubmit();
-                                setTimeout(() => { submitGuardRef.current = false; }, 0);
-                              }
-                              if (event.key === 'Tab') {
-                                event.preventDefault();
-                                submitGuardRef.current = true;
-                                onCellInputSubmit();
-                                setTimeout(() => { submitGuardRef.current = false; }, 0);
-                              }
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <span className={styles.cellText}>{getDisplayValue(cell)}</span>
-                        )}
-
-                        {selected && row === maxRow && col === maxCol ? (
-                          <SelectionHandle position="bottom-right" onDrag={handleBottomRightDrag} onDragEnd={() => {}} />
-                        ) : null}
-
-                        {selected && row === minRow && col === minCol ? (
-                          <SelectionHandle position="top-left" onDrag={handleTopLeftDrag} onDragEnd={() => {}} />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            {visibleRows.map((row) => renderRow(row))}
           </div>
         </div>
       </div>

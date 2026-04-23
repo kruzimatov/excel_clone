@@ -2,11 +2,13 @@
 
 This web app now includes:
 
-- a Google Sheets-style home page
+- a compact home page
 - local browser draft autosave
-- recent files for device and Google Drive
-- Google Drive save/open support using one dedicated app folder
+- recent files for device and Apps Script sources
+- Apps Script-backed spreadsheet loading
 - dynamic rows per sheet starting at 50 with `Add 50 rows` and `Add 100 rows`
+- a collapsible top menu area in the editor
+- a pinned first spreadsheet row while scrolling
 
 ## Run
 
@@ -15,42 +17,68 @@ npm install
 npm run dev
 ```
 
-## Google Drive Setup
-
-The Drive integration uses Google Identity Services in the browser and the Google Drive REST API.
+## Apps Script Setup
 
 Create `web/.env.local` with:
 
 ```bash
-VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
-VITE_GOOGLE_DRIVE_FOLDER_NAME=Excel Clone Files
+VITE_APPS_SCRIPT_URL=your_apps_script_web_app_url
 ```
 
-Notes:
+The client expects the published Apps Script web app to return JSON. Supported response shapes:
 
-- `VITE_GOOGLE_CLIENT_ID` is required for Google Drive features
-- `VITE_GOOGLE_DRIVE_FOLDER_NAME` is optional; if omitted, the app uses `Excel Clone Files`
-- the app only creates, opens, lists, and updates files inside that dedicated folder
-- the app does **not** delete Drive files
+```json
+{
+  "title": "Ledger",
+  "sheets": [
+    {
+      "name": "Clients",
+      "rows": [
+        ["Name", "Balance"],
+        ["Fuad", 1000]
+      ]
+    }
+  ]
+}
+```
 
-## Recommended Google Cloud Config
+or:
 
-1. Create or use a Google Cloud project.
-2. Enable the Google Drive API.
-3. Create an OAuth 2.0 Client ID for a web application.
-4. Add your local dev origin, for example `http://localhost:5173`, to Authorized JavaScript origins.
-5. Put that client ID into `VITE_GOOGLE_CLIENT_ID`.
+```json
+{
+  "workbook": {
+    "title": "Ledger",
+    "tabs": [
+      {
+        "title": "Clients",
+        "values": [
+          ["Name", "Balance"],
+          ["Fuad", 1000]
+        ]
+      }
+    ]
+  }
+}
+```
+
+The app also accepts a sheet object with a prebuilt `cells` map.
+
+## Example Apps Script Pattern
+
+Google documents the web app pattern with `doGet()` / `doPost()` and `ContentService.createTextOutput()` for JSON responses:
+
+- [Apps Script web apps](https://developers.google.com/apps-script/guides/web)
+- [Apps Script ContentService](https://developers.google.com/apps-script/reference/content/content-service)
 
 ## Storage Behavior
 
 - `Save` updates the local browser draft only.
 - `Save As` downloads a local `.xlsx` copy.
-- `Save to Drive` uploads or updates the workbook in the dedicated Google Drive folder.
+- `Load storage` fetches workbook data from `VITE_APPS_SCRIPT_URL`.
 - `Open from device` imports a local `.xlsx`.
-- `Open from Google Drive` uses files from the dedicated app folder.
 
 ## Current Limitations
 
-- Recent Google Drive files can be reopened directly.
-- Recent device files are remembered in the home screen, but browsers do not let the app silently reopen the original local file later, so the user may need to pick it again.
-- Production build currently emits a large bundle warning because `xlsx` is still bundled into the main chunk.
+- Recent local files reopen directly only on browsers that support persistent file handles.
+- On Safari/iPad, recent local files may still ask the user to re-select the file.
+- Production build still emits a large bundle warning because `xlsx` remains in the main chunk.

@@ -85,9 +85,10 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   color: #ffffff;
+  cursor: pointer;
   display: flex;
   flex-shrink: 0;
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 800;
   height: 46px;
   justify-content: center;
@@ -101,11 +102,40 @@
   min-width: 0;
 }
 
+.titleButton {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: flex-start;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
 .title {
   color: #ffffff;
   font-size: 20px;
   font-weight: 800;
   margin: 0;
+}
+
+.titleInput {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+  max-width: 420px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.titleInput::placeholder {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .subtitle {
@@ -245,13 +275,18 @@
 
   .brandBadge {
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 22px;
     height: 34px;
     width: 34px;
   }
 
   .title {
     font-size: 16px;
+  }
+
+  .titleInput {
+    font-size: 16px;
+    min-height: 30px;
   }
 
   .subtitle {

@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 
-import type { GoogleDriveFile } from '../hooks/useGoogleDrive';
 import type { RecentFileEntry } from '../types';
 import { classNames } from '../utils/classNames';
 
 import styles from './HomeScreen.module.css';
 
-type SourceFilter = 'all' | 'device' | 'google-drive';
+type SourceFilter = 'all' | 'device' | 'appscript';
 
 interface DraftSummary {
   title: string;
@@ -14,21 +13,21 @@ interface DraftSummary {
   currentFileName: string | null;
 }
 
+interface AppScriptSummary {
+  configured: boolean;
+  loading: boolean;
+  error: string | null;
+  sheetNames: string[];
+}
+
 interface HomeScreenProps {
   draft: DraftSummary | null;
   recentFiles: RecentFileEntry[];
-  driveConfigured: boolean;
-  driveConnected: boolean;
-  driveBusy: boolean;
-  driveFiles: GoogleDriveFile[];
-  driveFolderName: string;
-  driveError: string | null;
+  appScript: AppScriptSummary;
   onResumeDraft: () => void;
   onCreateBlank: () => void;
   onOpenFromDevice: () => void;
-  onConnectDrive: () => void;
-  onRefreshDrive: () => void;
-  onOpenDriveFile: (fileId: string) => void;
+  onLoadFromAppScript: () => void;
   onOpenRecentFile: (entry: RecentFileEntry) => void;
 }
 
@@ -45,13 +44,13 @@ function formatDate(value?: string | null) {
 }
 
 function sourceLabel(source: SourceFilter | RecentFileEntry['source']) {
-  if (source === 'google-drive') return 'Google Drive';
+  if (source === 'appscript') return 'Apps Script';
   if (source === 'device') return 'Device';
   return 'All';
 }
 
 function reopenHint(entry: RecentFileEntry) {
-  if (entry.source === 'google-drive') return 'Tap to reopen from Drive';
+  if (entry.source === 'appscript') return 'Tap to reload from Apps Script';
   if (entry.fileHandleId) return 'Tap to reopen';
   return 'Tap to re-select local file';
 }
@@ -59,26 +58,19 @@ function reopenHint(entry: RecentFileEntry) {
 export function HomeScreen({
   draft,
   recentFiles,
-  driveConfigured,
-  driveConnected,
-  driveBusy,
-  driveFiles,
-  driveFolderName,
-  driveError,
+  appScript,
   onResumeDraft,
   onCreateBlank,
   onOpenFromDevice,
-  onConnectDrive,
-  onRefreshDrive,
-  onOpenDriveFile,
+  onLoadFromAppScript,
   onOpenRecentFile,
 }: HomeScreenProps) {
   const [filter, setFilter] = useState<SourceFilter>('all');
 
   const filteredRecentFiles = useMemo(() => (
-    filter === 'all'
-      ? recentFiles
-      : recentFiles.filter((entry) => entry.source === filter)
+    recentFiles
+      .filter((entry) => entry.source !== 'google-drive')
+      .filter((entry) => (filter === 'all' ? true : entry.source === filter))
   ), [filter, recentFiles]);
 
   return (
@@ -88,9 +80,9 @@ export function HomeScreen({
           <div className={styles.brandMark}>X</div>
           <div>
             <p className={styles.kicker}>Excel Clone Workspace</p>
-            <h1 className={styles.title}>Sheets home with safer storage.</h1>
+            <h1 className={styles.title}>Spreadsheet storage with Apps Script.</h1>
             <p className={styles.subtitle}>
-              Open from your device, keep a browser draft for safety, and save approved files into one dedicated Google Drive folder.
+              Open local files when needed, but use published spreadsheet data from Apps Script as the main storage source.
             </p>
           </div>
         </div>
@@ -111,12 +103,12 @@ export function HomeScreen({
             accent="blue"
           />
           <ActionCard
-            title="Open from Google Drive"
-            detail={driveConfigured ? `Use the "${driveFolderName}" folder only.` : 'Add Google Drive config to enable cloud storage.'}
-            actionLabel={driveConfigured ? (driveConnected ? 'Refresh Drive' : 'Connect Drive') : 'Add Client ID first'}
-            onPress={driveConnected ? onRefreshDrive : onConnectDrive}
+            title="Load from Apps Script"
+            detail={appScript.configured ? 'Fetch workbook data from your Apps Script web app.' : 'Add Apps Script config to enable spreadsheet storage.'}
+            actionLabel={!appScript.configured ? 'Add script URL first' : appScript.loading ? 'Loading...' : 'Load storage'}
+            onPress={onLoadFromAppScript}
             accent="gold"
-            disabled={!driveConfigured || driveBusy}
+            disabled={!appScript.configured || appScript.loading}
           />
         </div>
       </header>
@@ -145,7 +137,7 @@ export function HomeScreen({
               <h2 className={styles.sectionTitle}>Continue your work</h2>
             </div>
             <div className={styles.filters}>
-              {(['all', 'device', 'google-drive'] as const).map((item) => (
+              {(['all', 'device', 'appscript'] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -172,14 +164,14 @@ export function HomeScreen({
                   <span>{reopenHint(entry)}</span>
                 </div>
                 <div className={styles.fileMeta}>
-                  <span className={styles.sourcePill}>{sourceLabel(entry.source)}</span>
+                  <span className={styles.sourcePill}>{sourceLabel(entry.source as SourceFilter)}</span>
                   <span>{formatDate(entry.lastOpenedAt || entry.modifiedAt)}</span>
                 </div>
               </button>
             )) : (
               <div className={styles.emptyState}>
                 <strong>No recent files yet.</strong>
-                <span>Open something from your device or save a workbook to Google Drive to build your recent list.</span>
+                <span>Open something from your device or load your Apps Script workbook to build your recent list.</span>
               </div>
             )}
           </div>
@@ -189,58 +181,53 @@ export function HomeScreen({
           <div className={styles.driveCard}>
             <div className={styles.sectionHeaderCompact}>
               <div>
-                <p className={styles.sectionEyebrow}>Google Drive</p>
-                <h2 className={styles.sectionTitle}>Dedicated folder</h2>
+                <p className={styles.sectionEyebrow}>Apps Script</p>
+                <h2 className={styles.sectionTitle}>Spreadsheet storage</h2>
               </div>
-              <span className={classNames(styles.driveStatus, driveConnected && styles.driveStatusActive)}>
-                {driveConnected ? 'Connected' : driveConfigured ? 'Not connected' : 'Needs config'}
+              <span className={classNames(styles.driveStatus, appScript.configured && styles.driveStatusActive)}>
+                {appScript.configured ? 'Configured' : 'Needs config'}
               </span>
             </div>
 
             <p className={styles.driveCopy}>
-              This app only creates, lists, opens, and updates files inside <strong>{driveFolderName}</strong>. It does not delete Drive files.
+              This app can load workbook data from a published Apps Script web app and show each remote sheet as a normal tab in the editor.
             </p>
 
-            {!driveConfigured ? (
+            {!appScript.configured ? (
               <div className={styles.warningBox}>
-                Add <code>VITE_GOOGLE_CLIENT_ID</code> in the web app environment to enable Google Drive.
+                Add <code>VITE_APPS_SCRIPT_URL</code> in the web app environment to enable Apps Script loading.
               </div>
             ) : null}
 
-            {driveError ? (
-              <div className={styles.warningBox}>{driveError}</div>
+            {appScript.error ? (
+              <div className={styles.warningBox}>{appScript.error}</div>
             ) : null}
 
             <div className={styles.driveActions}>
               <button
                 type="button"
                 className={styles.primaryButton}
-                onClick={driveConnected ? onRefreshDrive : onConnectDrive}
-                disabled={!driveConfigured || driveBusy}
-                title={!driveConfigured ? 'Add VITE_GOOGLE_CLIENT_ID in web/.env.local first.' : undefined}
+                onClick={onLoadFromAppScript}
+                disabled={!appScript.configured || appScript.loading}
+                title={!appScript.configured ? 'Add VITE_APPS_SCRIPT_URL in web/.env.local first.' : undefined}
               >
-                {!driveConfigured ? 'Add Client ID first' : driveBusy ? 'Working...' : driveConnected ? 'Refresh files' : 'Connect Drive'}
+                {!appScript.configured ? 'Add Script URL first' : appScript.loading ? 'Loading...' : 'Load workbook'}
               </button>
             </div>
 
             <div className={styles.driveList}>
-              {driveConnected && driveFiles.length > 0 ? driveFiles.map((file) => (
-                <button
-                  key={file.id}
-                  type="button"
-                  className={styles.driveFileRow}
-                  onClick={() => onOpenDriveFile(file.id)}
-                >
+              {appScript.sheetNames.length > 0 ? appScript.sheetNames.map((sheetName) => (
+                <div key={sheetName} className={styles.driveFileRow}>
                   <div className={styles.fileInfo}>
-                    <strong>{file.name}</strong>
-                    <span>{formatDate(file.modifiedTime)}</span>
+                    <strong>{sheetName}</strong>
+                    <span>Remote sheet tab</span>
                   </div>
-                  <span className={styles.linkHint}>Open</span>
-                </button>
+                  <span className={styles.linkHint}>Tab</span>
+                </div>
               )) : (
                 <div className={styles.emptyState}>
-                  <strong>{driveConnected ? 'No files in the app folder yet.' : 'Drive files will appear here.'}</strong>
-                  <span>{driveConnected ? 'Save a workbook to Google Drive to populate this list.' : 'Connect Drive to browse the dedicated app folder.'}</span>
+                  <strong>{appScript.configured ? 'Remote sheets will appear here.' : 'Add your Apps Script endpoint first.'}</strong>
+                  <span>{appScript.configured ? 'Load the workbook to preview the sheet tabs before opening it.' : 'The client reads from one published Apps Script web app URL.'}</span>
                 </div>
               )}
             </div>

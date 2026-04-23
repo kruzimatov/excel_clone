@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'reac
 
 import { HomeScreen } from './components/HomeScreen';
 import { SpreadsheetScreen } from './components/SpreadsheetScreen';
-import { useGoogleDrive } from './hooks/useGoogleDrive';
 import { createDefaultWorkbook, useWorkbook } from './store/useWorkbook';
 import type { FileDescriptor, RecentFileEntry } from './types';
+import { loadWorkbookFromAppsScript } from './utils/appScript';
 import {
   canReadFileHandle,
   loadRecentFileHandle,
@@ -23,7 +23,6 @@ import {
   baseNameNoExt,
   buildWorkbookBlob,
   downloadWorkbookFile,
-  importWorkbookFromArrayBuffer,
   importWorkbookFromFile,
   sanitizeFileName,
 } from './utils/workbookXlsx';
@@ -58,8 +57,8 @@ function buildWorkbookFileName(currentFileName: string | null, title: string) {
 function App() {
   const workbookStore = useWorkbook();
   const loadWorkbook = workbookStore.loadWorkbook;
-  const drive = useGoogleDrive();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const appScriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL as string | undefined;
 
   const [screen, setScreen] = useState<Screen>('home');
   const [title, setTitle] = useState('Hisobot');
@@ -69,7 +68,9 @@ function App() {
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>(() => loadRecentFiles());
   const [storageReady, setStorageReady] = useState(false);
   const [localSaving, setLocalSaving] = useState(false);
-  const [driveSaving, setDriveSaving] = useState(false);
+  const [appScriptLoading, setAppScriptLoading] = useState(false);
+  const [appScriptError, setAppScriptError] = useState<string | null>(null);
+  const [appScriptSheetNames, setAppScriptSheetNames] = useState<string[]>([]);
 
   const rememberRecent = useCallback((entry: Omit<RecentFileEntry, 'id' | 'lastOpenedAt'> & { id?: string }) => {
     setRecentFiles(saveRecentFile(entry));
@@ -105,6 +106,8 @@ function App() {
     };
 
     workbookStore.loadWorkbook(importedWorkbook);
+    setAppScriptError(null);
+    setAppScriptSheetNames(importedWorkbook.sheets.map((sheet) => sheet.name));
     applySession({
       nextTitle: baseNameNoExt(input.file.name) || 'Workbook',
       nextFileName: safeName,
@@ -123,6 +126,51 @@ function App() {
     });
   }, [applySession, rememberRecent, workbookStore]);
 
+  const loadFromAppScript = useCallback(async () => {
+    if (!appScriptUrl) {
+      setAppScriptError('Add VITE_APPS_SCRIPT_URL in web/.env.local first.');
+      return;
+    }
+
+    setAppScriptLoading(true);
+    setAppScriptError(null);
+
+    try {
+      const remote = await loadWorkbookFromAppsScript(appScriptUrl);
+      const descriptor: FileDescriptor = {
+        source: 'appscript',
+        name: remote.title,
+        mimeType: 'application/json',
+        modifiedAt: new Date().toISOString(),
+        lastOpenedAt: new Date().toISOString(),
+      };
+
+      workbookStore.loadWorkbook(remote.workbook);
+      setAppScriptSheetNames(remote.workbook.sheets.map((sheet) => sheet.name));
+      applySession({
+        nextTitle: remote.title,
+        nextFileName: `${remote.title}.appscript`,
+        nextActiveFile: descriptor,
+        navigateTo: 'editor',
+      });
+      rememberRecent({
+        id: `appscript:${remote.title}`,
+        source: 'appscript',
+        name: remote.title,
+        title: remote.title,
+        currentFileName: `${remote.title}.appscript`,
+        mimeType: 'application/json',
+        modifiedAt: descriptor.modifiedAt,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Apps Script load failed.';
+      setAppScriptError(message);
+      window.alert(`Apps Script load failed: ${message}`);
+    } finally {
+      setAppScriptLoading(false);
+    }
+  }, [appScriptUrl, applySession, rememberRecent, workbookStore]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -136,6 +184,7 @@ function App() {
         setCurrentFileName(savedDraft.currentFileName);
         setActiveFile(savedDraft.activeFile);
         setDraft(buildDraftSummary(savedDraft));
+        setAppScriptSheetNames(savedDraft.workbook.sheets.map((sheet) => sheet.name));
       }
 
       setStorageReady(true);
@@ -169,7 +218,10 @@ function App() {
   }, [activeFile, currentFileName, storageReady, title, workbookStore.workbook]);
 
   const handleCreateBlank = useCallback(() => {
-    workbookStore.loadWorkbook(createDefaultWorkbook());
+    const nextWorkbook = createDefaultWorkbook();
+    workbookStore.loadWorkbook(nextWorkbook);
+    setAppScriptError(null);
+    setAppScriptSheetNames(nextWorkbook.sheets.map((sheet) => sheet.name));
     applySession({
       nextTitle: 'Untitled spreadsheet',
       nextFileName: 'Untitled spreadsheet.xlsx',
@@ -273,96 +325,17 @@ function App() {
     }
   }, [activeFile, applySession, currentFileName, rememberRecent, title, workbookStore.workbook]);
 
-  const handleConnectDrive = useCallback(async () => {
-    try {
-      await drive.connect(true);
-    } catch (error) {
-      window.alert(`Google Drive connection failed: ${String(error)}`);
-    }
-  }, [drive]);
-
-  const handleOpenDriveFile = useCallback(async (fileId: string) => {
-    try {
-      const opened = await drive.openFile(fileId);
-      const importedWorkbook = importWorkbookFromArrayBuffer(await opened.blob.arrayBuffer());
-      const descriptor: FileDescriptor = {
-        source: 'google-drive',
-        name: opened.file.name,
-        fileId: opened.file.id,
-        driveFolderId: opened.file.parents?.[0],
-        mimeType: opened.file.mimeType,
-        modifiedAt: opened.file.modifiedTime,
-        lastOpenedAt: new Date().toISOString(),
-      };
-
-      workbookStore.loadWorkbook(importedWorkbook);
-      applySession({
-        nextTitle: baseNameNoExt(opened.file.name) || 'Workbook',
-        nextFileName: opened.file.name,
-        nextActiveFile: descriptor,
-        navigateTo: 'editor',
-      });
-      rememberRecent({
-        id: `google-drive:${opened.file.id}`,
-        source: 'google-drive',
-        name: opened.file.name,
-        fileId: opened.file.id,
-        driveFolderId: opened.file.parents?.[0],
-        mimeType: opened.file.mimeType,
-        modifiedAt: opened.file.modifiedTime,
-        title: baseNameNoExt(opened.file.name) || 'Workbook',
-        currentFileName: opened.file.name,
-      });
-    } catch (error) {
-      window.alert(`Google Drive open failed: ${String(error)}`);
-    }
-  }, [applySession, drive, rememberRecent, workbookStore]);
-
-  const handleSaveToDrive = useCallback(async () => {
-    setDriveSaving(true);
-
-    try {
-      const fileName = buildWorkbookFileName(currentFileName, title);
-      const blob = buildWorkbookBlob(workbookStore.workbook);
-      const savedFile = await drive.saveFile({
-        blob,
-        name: fileName,
-        existingFile: activeFile?.source === 'google-drive' ? activeFile : null,
-      });
-
-      applySession({
-        nextTitle: baseNameNoExt(savedFile.name) || title,
-        nextFileName: savedFile.name,
-        nextActiveFile: savedFile,
-      });
-      rememberRecent({
-        id: `google-drive:${savedFile.fileId}`,
-        source: 'google-drive',
-        name: savedFile.name,
-        fileId: savedFile.fileId,
-        driveFolderId: savedFile.driveFolderId,
-        mimeType: savedFile.mimeType,
-        modifiedAt: savedFile.modifiedAt,
-        title: baseNameNoExt(savedFile.name) || title,
-        currentFileName: savedFile.name,
-      });
-    } catch (error) {
-      window.alert(`Google Drive save failed: ${String(error)}`);
-    } finally {
-      setDriveSaving(false);
-    }
-  }, [activeFile, applySession, currentFileName, drive, rememberRecent, title, workbookStore.workbook]);
-
   const handleOpenRecentFile = useCallback((entry: RecentFileEntry) => {
-    if (entry.source === 'google-drive' && entry.fileId) {
-      void handleOpenDriveFile(entry.fileId);
+    if (entry.source === 'appscript') {
+      void loadFromAppScript();
       return;
     }
 
     if (entry.source === 'device' && entry.fileHandleId) {
+      const handleId = entry.fileHandleId;
       void (async () => {
         try {
-          const handle = await loadRecentFileHandle(entry.fileHandleId!);
+          const handle = await loadRecentFileHandle(handleId);
           if (!handle) {
             handleOpenFromDevice();
             return;
@@ -377,7 +350,7 @@ function App() {
           const file = await handle.getFile();
           await openWorkbookFromDeviceFile({
             file,
-            fileHandleId: entry.fileHandleId,
+            fileHandleId: handleId,
           });
         } catch (error) {
           console.warn('Recent device reopen failed, falling back to picker.', error);
@@ -388,7 +361,7 @@ function App() {
     }
 
     handleOpenFromDevice();
-  }, [handleOpenDriveFile, handleOpenFromDevice, openWorkbookFromDeviceFile]);
+  }, [handleOpenFromDevice, loadFromAppScript, openWorkbookFromDeviceFile]);
 
   return (
     <>
@@ -404,18 +377,16 @@ function App() {
         <HomeScreen
           draft={draft}
           recentFiles={recentFiles}
-          driveConfigured={drive.configured}
-          driveConnected={drive.isConnected}
-          driveBusy={drive.busy}
-          driveFiles={drive.files}
-          driveFolderName={drive.folderName}
-          driveError={drive.error}
+          appScript={{
+            configured: !!appScriptUrl,
+            loading: appScriptLoading,
+            error: appScriptError,
+            sheetNames: appScriptSheetNames,
+          }}
           onResumeDraft={handleResumeDraft}
           onCreateBlank={handleCreateBlank}
           onOpenFromDevice={handleOpenFromDevice}
-          onConnectDrive={() => void handleConnectDrive()}
-          onRefreshDrive={() => void drive.refreshFiles(true)}
-          onOpenDriveFile={(fileId) => void handleOpenDriveFile(fileId)}
+          onLoadFromAppScript={() => void loadFromAppScript()}
           onOpenRecentFile={handleOpenRecentFile}
         />
       ) : (
@@ -425,15 +396,14 @@ function App() {
           currentFileName={currentFileName}
           activeFile={activeFile}
           localSaving={localSaving}
-          driveSaving={driveSaving}
-          driveConfigured={drive.configured}
-          driveConnected={drive.isConnected}
+          remoteLoading={appScriptLoading}
+          remoteConfigured={!!appScriptUrl}
           onGoHome={() => setScreen('home')}
           onOpenFromDevice={handleOpenFromDevice}
           onSave={handleSave}
           onSaveAs={handleSaveAs}
-          onSaveToDrive={() => void handleSaveToDrive()}
-          onConnectDrive={() => void handleConnectDrive()}
+          onLoadRemote={() => void loadFromAppScript()}
+          onRenameTitle={setTitle}
         />
       )}
     </>

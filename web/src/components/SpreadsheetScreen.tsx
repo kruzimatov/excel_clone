@@ -31,7 +31,7 @@ function formatRangeRef(
 
 function formatSourceLabel(file: FileDescriptor | null) {
   if (!file) return 'Local browser draft';
-  if (file.source === 'google-drive') return 'Google Drive';
+  if (file.source === 'appscript') return 'Apps Script storage';
   if (file.source === 'device') return 'Device file';
   return 'Local browser draft';
 }
@@ -42,15 +42,14 @@ interface SpreadsheetScreenProps {
   currentFileName: string | null;
   activeFile: FileDescriptor | null;
   localSaving: boolean;
-  driveSaving: boolean;
-  driveConfigured: boolean;
-  driveConnected: boolean;
+  remoteLoading: boolean;
+  remoteConfigured: boolean;
   onGoHome: () => void;
   onOpenFromDevice: () => void;
   onSave: () => void;
   onSaveAs: () => void;
-  onSaveToDrive: () => void;
-  onConnectDrive: () => void;
+  onLoadRemote: () => void;
+  onRenameTitle: (value: string) => void;
 }
 
 export function SpreadsheetScreen({
@@ -59,15 +58,14 @@ export function SpreadsheetScreen({
   currentFileName,
   activeFile,
   localSaving,
-  driveSaving,
-  driveConfigured,
-  driveConnected,
+  remoteLoading,
+  remoteConfigured,
   onGoHome,
   onOpenFromDevice,
   onSave,
   onSaveAs,
-  onSaveToDrive,
-  onConnectDrive,
+  onLoadRemote,
+  onRenameTitle,
 }: SpreadsheetScreenProps) {
   const storeRef = useRef(workbookStore);
   const saveRef = useRef(onSave);
@@ -80,8 +78,8 @@ export function SpreadsheetScreen({
     visible: boolean;
     position: { x: number; y: number };
   }>({ visible: false, position: { x: 0, y: 0 } });
-
-  const maxRowIndex = Math.max(0, workbookStore.activeSheet.visibleRowCount - 1);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(title);
 
   useEffect(() => {
     storeRef.current = workbookStore;
@@ -294,13 +292,11 @@ export function SpreadsheetScreen({
     workbookStore.setEditingCell(null);
     setRangeSelectionAnchor(null);
     setRangeSelectionEnd(null);
-
-    const nextRow = Math.min(maxRowIndex, commitRow + 1);
     workbookStore.setSelection({
-      start: { row: nextRow, col: commitCol },
-      end: { row: nextRow, col: commitCol },
+      start: { row: commitRow, col: commitCol },
+      end: { row: commitRow, col: commitCol },
     });
-    workbookStore.setFormulaInput(getCellText(nextRow, commitCol));
+    workbookStore.setFormulaInput(getCellText(commitRow, commitCol));
   }
 
   function handleFormulaSubmit() {
@@ -309,13 +305,23 @@ export function SpreadsheetScreen({
     setRangeSelectionEnd(null);
     workbookStore.setCellValue(row, col, workbookStore.formulaInput);
     workbookStore.setEditingCell(null);
-
-    const nextRow = Math.min(maxRowIndex, row + 1);
     workbookStore.setSelection({
-      start: { row: nextRow, col },
-      end: { row: nextRow, col },
+      start: { row, col },
+      end: { row, col },
     });
-    workbookStore.setFormulaInput(getCellText(nextRow, col));
+    workbookStore.setFormulaInput(getCellText(row, col));
+  }
+
+  function handleTitleSubmit() {
+    const nextTitle = titleInput.trim();
+    if (!nextTitle) {
+      setTitleInput(title);
+      setEditingTitle(false);
+      return;
+    }
+
+    onRenameTitle(nextTitle);
+    setEditingTitle(false);
   }
 
   function handleBoldPress() {
@@ -380,11 +386,11 @@ export function SpreadsheetScreen({
         ? 'Tap first cell'
         : `Pick end from ${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}`;
 
-  const driveButtonLabel = !driveConfigured
-    ? 'Drive setup'
-    : driveConnected
-      ? (driveSaving ? 'Saving to Drive...' : 'Save to Drive')
-      : 'Connect Drive';
+  const remoteButtonLabel = !remoteConfigured
+    ? 'Apps Script setup'
+    : remoteLoading
+      ? 'Loading storage...'
+      : 'Load storage';
 
   return (
     <div className={styles.container}>
@@ -393,9 +399,47 @@ export function SpreadsheetScreen({
           <button type="button" className={styles.homeButton} onClick={onGoHome}>
             Home
           </button>
-          <div className={styles.brandBadge}>X</div>
+          <button
+            type="button"
+            className={styles.brandBadge}
+            onClick={onGoHome}
+            title="Close workbook and return home"
+          >
+            ×
+          </button>
           <div className={styles.titleWrap}>
-            <h1 className={styles.title}>{title}</h1>
+            {editingTitle ? (
+              <input
+                className={styles.titleInput}
+                value={titleInput}
+                onChange={(event) => setTitleInput(event.target.value)}
+                onBlur={handleTitleSubmit}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleTitleSubmit();
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setTitleInput(title);
+                    setEditingTitle(false);
+                  }
+                }}
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                className={styles.titleButton}
+                onClick={() => {
+                  setTitleInput(title);
+                  setEditingTitle(true);
+                }}
+                title="Rename workbook"
+              >
+                <h1 className={styles.title}>{title}</h1>
+              </button>
+            )}
             <p className={styles.subtitle}>
               {formatSourceLabel(activeFile)}
               {currentFileName ? ` • ${currentFileName}` : ''}
@@ -416,10 +460,10 @@ export function SpreadsheetScreen({
           <button
             type="button"
             className={styles.driveButton}
-            onClick={driveConnected ? onSaveToDrive : onConnectDrive}
-            disabled={!driveConfigured || driveSaving}
+            onClick={onLoadRemote}
+            disabled={!remoteConfigured || remoteLoading}
           >
-            {driveButtonLabel}
+            {remoteButtonLabel}
           </button>
         </div>
       </header>

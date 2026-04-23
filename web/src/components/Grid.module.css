@@ -86,11 +86,25 @@
   position: relative;
 }
 
+.pinnedRowOverlay {
+  left: 0;
+  position: sticky;
+  top: var(--header-height);
+  z-index: 18;
+}
+
 .row {
   display: flex;
   left: 0;
   position: absolute;
   width: var(--grid-width);
+}
+
+.rowPinned {
+  background: #ffffff;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  left: 0;
+  position: relative;
 }
 
 .rowHeader {

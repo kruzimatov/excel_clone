@@ -3,6 +3,60 @@
   border-bottom: 1px solid #dce3ec;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 30;
+}
+
+.toolbarHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 12px 0;
+}
+
+.toolbarHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toolbarHeaderText strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.toolbarHeaderText span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.toolbarToggle {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d6dee8;
+  border-radius: 999px;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.toolPanels {
+  max-height: 220px;
+  overflow: visible;
+  transition: max-height 220ms ease, opacity 220ms ease, padding 220ms ease;
+}
+
+.toolPanelsClosed {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .toolRow {
@@ -21,6 +75,10 @@
   flex-shrink: 0;
   gap: 8px;
   padding: 6px;
+}
+
+.dropdownGroup {
+  position: relative;
 }
 
 .actionChip {
@@ -204,22 +262,37 @@
 .pickerCard {
   background: #ffffff;
   border: 1px solid #e3e8ef;
-  border-radius: 18px;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
-  margin: 0 12px 12px;
-  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  left: 12px;
+  max-height: min(320px, 42vh);
+  max-width: calc(100% - 24px);
+  overflow: auto;
+  position: fixed;
+  top: 80px;
+  z-index: 120;
+  padding: 12px;
+  width: min(360px, calc(100% - 24px));
+}
+
+.pickerCardCompact {
+  padding: 10px;
+}
+
+.pickerCardTop {
+  transform-origin: bottom left;
 }
 
 .pickerHeader {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .pickerTitle {
   color: #334155;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -234,19 +307,20 @@
 
 .colorGrid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .colorOption {
   background: #f8fafc;
   border: 1px solid #dce3ec;
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 6px;
+  min-height: 74px;
+  padding: 8px;
   text-align: left;
 }
 
@@ -263,10 +337,10 @@
 
 .colorSwatch {
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 7px;
   display: inline-flex;
-  height: 24px;
-  width: 24px;
+  height: 22px;
+  width: 22px;
 }
 
 .colorCheck {
@@ -277,7 +351,7 @@
 
 .colorLabel {
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -288,18 +362,18 @@
 .listOptions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .listOption {
   align-items: center;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 8px 10px;
   text-align: left;
 }
 
@@ -312,15 +386,15 @@
   align-items: center;
   background: #ffffff;
   border: 1px solid #dbe3ee;
-  border-radius: 10px;
+  border-radius: 9px;
   color: #334155;
   display: flex;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  height: 38px;
+  height: 34px;
   justify-content: center;
-  width: 38px;
+  width: 34px;
 }
 
 .listTextWrap {
@@ -332,13 +406,13 @@
 
 .listLabel {
   color: #334155;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .listHint {
   color: #64748b;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .listCheck {
@@ -348,9 +422,21 @@
 }
 
 @media (max-width: 720px) {
+  .toolbarHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .formulaBar {
     display: grid;
     grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  }
+
+  .pickerCard {
+    max-height: min(280px, 40vh);
+    left: 0;
+    max-width: min(92vw, 320px);
+    width: min(92vw, 320px);
   }
 }
 
