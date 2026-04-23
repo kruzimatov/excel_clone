@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { FileDescriptor } from '../types';
 import { cellKey, letterToCol } from '../utils/cells';
+import { t, type AppLanguage } from '../utils/i18n';
 import { ROW_INCREMENT_OPTIONS } from '../utils/workbookLayout';
 import type { WorkbookStore } from '../store/useWorkbook';
 
 import { ContextMenu } from './ContextMenu';
 import { Grid } from './Grid';
+import { LanguageToggle } from './LanguageToggle';
 import { SheetTabs } from './SheetTabs';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
@@ -29,42 +30,25 @@ function formatRangeRef(
   return startRef === endRef ? startRef : `${startRef}:${endRef}`;
 }
 
-function formatSourceLabel(file: FileDescriptor | null) {
-  if (!file) return 'Backend workspace';
-  if (file.source === 'backend') return 'Postgres workspace';
-  if (file.source === 'device') return 'Imported device file';
-  return 'Backend workspace';
-}
-
 interface SpreadsheetScreenProps {
+  language: AppLanguage;
+  onLanguageChange: (language: AppLanguage) => void;
   workbookStore: WorkbookStore;
   title: string;
-  currentFileName: string | null;
-  activeFile: FileDescriptor | null;
   storageSaving: boolean;
-  storageLoading: boolean;
-  storageHealthy: boolean;
   onGoHome: () => void;
-  onOpenFromDevice: () => void;
   onSave: () => void;
-  onSaveAs: () => void;
-  onReloadFromBackend: () => void;
   onRenameTitle: (value: string) => void;
 }
 
 export function SpreadsheetScreen({
+  language,
+  onLanguageChange,
   workbookStore,
   title,
-  currentFileName,
-  activeFile,
   storageSaving,
-  storageLoading,
-  storageHealthy,
   onGoHome,
-  onOpenFromDevice,
   onSave,
-  onSaveAs,
-  onReloadFromBackend,
   onRenameTitle,
 }: SpreadsheetScreenProps) {
   const storeRef = useRef(workbookStore);
@@ -80,6 +64,7 @@ export function SpreadsheetScreen({
   }>({ visible: false, position: { x: 0, y: 0 } });
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(title);
+  const [rowMenuOpen, setRowMenuOpen] = useState(false);
 
   useEffect(() => {
     storeRef.current = workbookStore;
@@ -146,6 +131,7 @@ export function SpreadsheetScreen({
         setContextMenu({ visible: false, position: { x: 0, y: 0 } });
         setRangeSelectionAnchor(null);
         setRangeSelectionEnd(null);
+        setRowMenuOpen(false);
         store.setEditingCell(null);
         return;
       }
@@ -373,39 +359,25 @@ export function SpreadsheetScreen({
   );
 
   const rangeSelectionLabel = !rangeSelectionAnchor
-    ? 'Range'
+    ? t(language, 'range')
     : rangeSelectionEnd
-      ? 'Confirm'
-      : 'Cancel';
+      ? t(language, 'confirm')
+      : t(language, 'cancel');
 
   const rangeSelectionDetail = !rangeSelectionAnchor
-    ? '1st cell -> button -> 2nd cell'
+    ? t(language, 'rangeStartHint')
     : rangeSelectionEnd
       ? formatRangeRef(rangeSelectionAnchor, rangeSelectionEnd)
       : rangeSelectionAnchor.row === -1
-        ? 'Tap first cell'
-        : `Pick end from ${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}`;
-
-  const remoteButtonLabel = storageLoading
-    ? 'Reloading...'
-    : storageHealthy
-      ? 'Reload backend'
-      : 'Backend offline';
+        ? t(language, 'rangePickFirstCell')
+        : t(language, 'rangePickEndFrom', { cell: cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col) });
 
   return (
     <div className={styles.container}>
       <header className={styles.topBar}>
         <div className={styles.brandBlock}>
           <button type="button" className={styles.homeButton} onClick={onGoHome}>
-            Home
-          </button>
-          <button
-            type="button"
-            className={styles.brandBadge}
-            onClick={onGoHome}
-            title="Close workbook and return home"
-          >
-            ×
+            {t(language, 'home')}
           </button>
           <div className={styles.titleWrap}>
             {editingTitle ? (
@@ -435,40 +407,24 @@ export function SpreadsheetScreen({
                   setTitleInput(title);
                   setEditingTitle(true);
                 }}
-                title="Rename workbook"
+                title={t(language, 'renameWorkbook')}
               >
                 <h1 className={styles.title}>{title}</h1>
               </button>
             )}
-            <p className={styles.subtitle}>
-              {formatSourceLabel(activeFile)}
-              {currentFileName ? ` • ${currentFileName}` : ''}
-            </p>
           </div>
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.openButton} onClick={onOpenFromDevice}>
-            Open
-          </button>
+          <LanguageToggle language={language} onChange={onLanguageChange} tone="dark" />
           <button type="button" className={styles.saveButton} onClick={onSave} disabled={storageSaving}>
-            {storageSaving ? 'Saving...' : 'Save'}
-          </button>
-          <button type="button" className={styles.secondaryButton} onClick={onSaveAs}>
-            Save As
-          </button>
-          <button
-            type="button"
-            className={styles.driveButton}
-            onClick={onReloadFromBackend}
-            disabled={!storageHealthy || storageLoading}
-          >
-            {remoteButtonLabel}
+            {storageSaving ? t(language, 'saving') : t(language, 'save')}
           </button>
         </div>
       </header>
 
       <Toolbar
+        language={language}
         selectedCellRef={selectedCellRef}
         formulaInput={workbookStore.formulaInput}
         isBoldActive={!!currentCell?.style?.bold}
@@ -502,19 +458,23 @@ export function SpreadsheetScreen({
       {workbookStore.rangeSelectionMode ? (
         <div className={styles.rangeBar}>
           <span className={styles.rangeText}>
-            Select second cell: {workbookStore.rangeStart ? cellKey(workbookStore.rangeStart.row, workbookStore.rangeStart.col) : ''}
+            {t(language, 'rangeSelectSecondCell', {
+              cell: workbookStore.rangeStart
+                ? cellKey(workbookStore.rangeStart.row, workbookStore.rangeStart.col)
+                : '',
+            })}
           </span>
           <button type="button" className={styles.rangeButton} onClick={workbookStore.cancelRangeSelection}>
-            Cancel
+            {t(language, 'cancel')}
           </button>
         </div>
       ) : null}
 
       {rangeSelectionAnchor?.row === -1 && rangeSelectionAnchor?.col === -1 ? (
         <div className={styles.rangeBar}>
-          <span className={styles.rangeText}>Range mode: tap FIRST cell</span>
+          <span className={styles.rangeText}>{t(language, 'rangeModeTapFirst')}</span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
-            Cancel
+            {t(language, 'cancel')}
           </button>
         </div>
       ) : null}
@@ -522,10 +482,12 @@ export function SpreadsheetScreen({
       {rangeSelectionAnchor && rangeSelectionAnchor.row !== -1 && rangeSelectionEnd === null ? (
         <div className={styles.rangeBar}>
           <span className={styles.rangeText}>
-            Range mode: tap SECOND cell (anchor: {cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)})
+            {t(language, 'rangeModeTapSecond', {
+              cell: cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col),
+            })}
           </span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
-            Cancel
+            {t(language, 'cancel')}
           </button>
         </div>
       ) : null}
@@ -533,15 +495,18 @@ export function SpreadsheetScreen({
       {rangeSelectionAnchor && rangeSelectionEnd ? (
         <div className={styles.rangeBar}>
           <span className={styles.rangeText}>
-            Range selected: {cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}:{cellKey(rangeSelectionEnd.row, rangeSelectionEnd.col)}
+            {t(language, 'rangeSelected', {
+              range: `${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}:${cellKey(rangeSelectionEnd.row, rangeSelectionEnd.col)}`,
+            })}
           </span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
-            Clear
+            {t(language, 'clear')}
           </button>
         </div>
       ) : null}
 
       <Grid
+        language={language}
         cells={workbookStore.activeSheet.cells}
         selection={workbookStore.selection}
         editingCell={workbookStore.editingCell}
@@ -557,28 +522,40 @@ export function SpreadsheetScreen({
         onCellInputSubmit={handleCellInputSubmit}
       />
 
-      <div className={styles.rowBar}>
-        <div>
-          <strong>{workbookStore.activeSheet.visibleRowCount} rows visible</strong>
-          <span className={styles.rowHint}>New sheets start at 50 rows. Add more only when you need them.</span>
-        </div>
+      <div className={styles.rowFabWrap}>
         <div className={styles.rowActions}>
-          {ROW_INCREMENT_OPTIONS.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => workbookStore.expandActiveSheetRows(amount)}
-            >
-              Add {amount} rows
-            </button>
-          ))}
+          <button
+            type="button"
+            className={styles.rowFab}
+            onClick={() => setRowMenuOpen((current) => !current)}
+          >
+            {t(language, 'add')}
+          </button>
+
+          {rowMenuOpen ? (
+            <div className={styles.rowMenu}>
+              {ROW_INCREMENT_OPTIONS.map((amount) => (
+                <button
+                  key={amount}
+                  type="button"
+                  className={styles.rowMenuItem}
+                  onClick={() => {
+                    workbookStore.expandActiveSheetRows(amount);
+                    setRowMenuOpen(false);
+                  }}
+                >
+                  {t(language, 'addAmount', { amount })}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <StatusBar cells={workbookStore.activeSheet.cells} selection={workbookStore.selection} />
+      <StatusBar language={language} cells={workbookStore.activeSheet.cells} selection={workbookStore.selection} />
 
       <SheetTabs
+        language={language}
         sheets={workbookStore.workbook.sheets}
         activeSheetId={workbookStore.workbook.activeSheetId}
         onSwitchSheet={workbookStore.switchSheet}
@@ -588,6 +565,7 @@ export function SpreadsheetScreen({
       />
 
       <ContextMenu
+        language={language}
         visible={contextMenu.visible}
         position={contextMenu.position}
         hasClipboard={!!workbookStore.clipboard}

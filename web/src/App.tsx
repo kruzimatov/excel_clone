@@ -22,10 +22,36 @@ import {
   importWorkbookFromFile,
   sanitizeFileName,
 } from './utils/workbookXlsx';
+import {
+  buildDefaultWorkbookTitle,
+  buildUntitledWorkbookTitle,
+  getStoredLanguage,
+  persistLanguage,
+  t,
+  type AppLanguage,
+} from './utils/i18n';
 
 type Screen = 'home' | 'editor';
 
 const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function resolveWorkbookTitle(rawTitle: string | null | undefined, currentFileName: string | null) {
+  const fileTitle = baseNameNoExt(currentFileName ?? '')?.trim();
+  const title = rawTitle?.trim() ?? '';
+  const genericTitles = new Set([
+    '',
+    'Untitled spreadsheet',
+    'Nomsiz jadval',
+    'Новая таблица',
+    'Workbook',
+  ]);
+
+  if (fileTitle && genericTitles.has(title)) {
+    return fileTitle;
+  }
+
+  return title || fileTitle || 'Workbook';
+}
 
 function buildDraftSummary(draft: RecentFileEntry | null) {
   if (!draft) return null;
@@ -48,12 +74,13 @@ function buildSnapshot(payload: PersistWorkbookPayload) {
 }
 
 function toRecentFileEntry(record: Omit<BackendWorkbookRecord, 'workbook'>): RecentFileEntry {
+  const resolvedTitle = resolveWorkbookTitle(record.title, record.currentFileName);
   return {
     id: record.id,
-    title: record.title,
+    title: resolvedTitle,
     currentFileName: record.currentFileName,
     source: record.activeFile?.source ?? 'backend',
-    name: record.activeFile?.name ?? record.title,
+    name: record.activeFile?.name ?? resolvedTitle,
     fileHandleId: record.activeFile?.fileHandleId,
     mimeType: record.activeFile?.mimeType,
     modifiedAt: record.updatedAt,
@@ -67,12 +94,13 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastPersistedSnapshotRef = useRef<string | null>(null);
 
+  const [language, setLanguage] = useState<AppLanguage>(() => getStoredLanguage());
   const [screen, setScreen] = useState<Screen>('home');
-  const [title, setTitle] = useState('Hisobot');
+  const [title, setTitle] = useState(() => buildDefaultWorkbookTitle(getStoredLanguage()));
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<FileDescriptor | null>({
     source: 'backend',
-    name: 'Hisobot',
+    name: buildDefaultWorkbookTitle(getStoredLanguage()),
   });
   const [backendWorkbookId, setBackendWorkbookId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReturnType<typeof buildDraftSummary>>(null);
@@ -81,14 +109,17 @@ function App() {
   const [storageHealthy, setStorageHealthy] = useState(false);
   const [storageMessage, setStorageMessage] = useState('Checking backend...');
   const [storageSaving, setStorageSaving] = useState(false);
-  const [storageLoading, setStorageLoading] = useState(false);
 
+  const resolvedTitle = useMemo(
+    () => resolveWorkbookTitle(title, currentFileName),
+    [currentFileName, title],
+  );
   const persistPayload = useMemo<PersistWorkbookPayload>(() => ({
-    title,
+    title: resolvedTitle,
     currentFileName,
     activeFile,
     workbook: workbookStore.workbook,
-  }), [activeFile, currentFileName, title, workbookStore.workbook]);
+  }), [activeFile, currentFileName, resolvedTitle, workbookStore.workbook]);
   const persistSnapshot = useMemo(() => buildSnapshot(persistPayload), [persistPayload]);
 
   const applySession = useCallback((input: {
@@ -123,12 +154,13 @@ function App() {
   }, []);
 
   const syncPersistedMetadata = useCallback((record: BackendWorkbookRecord) => {
+    const nextTitle = resolveWorkbookTitle(record.title, record.currentFileName);
     setBackendWorkbookId(record.id);
-    setTitle(record.title);
+    setTitle(nextTitle);
     setCurrentFileName(record.currentFileName);
     setActiveFile(record.activeFile);
     lastPersistedSnapshotRef.current = buildSnapshot({
-      title: record.title,
+      title: nextTitle,
       currentFileName: record.currentFileName,
       activeFile: record.activeFile,
       workbook: record.workbook,
@@ -155,6 +187,10 @@ function App() {
     });
     lastPersistedSnapshotRef.current = null;
   }, [applySession, workbookStore]);
+
+  useEffect(() => {
+    persistLanguage(language);
+  }, [language]);
 
   useEffect(() => {
     void (async () => {
@@ -196,7 +232,7 @@ function App() {
       setStorageHealthy(false);
       setStorageMessage(message);
       if (mode === 'manual') {
-        window.alert(`Save failed: ${message}`);
+        window.alert(t(language, 'saveFailed', { message }));
       }
     } finally {
       if (mode === 'manual') {
@@ -205,6 +241,7 @@ function App() {
     }
   }, [
     backendWorkbookId,
+    language,
     persistPayload,
     persistSnapshot,
     storageHealthy,
@@ -227,23 +264,23 @@ function App() {
   const handleCreateBlank = useCallback(() => {
     const nextWorkbook = createDefaultWorkbook();
     workbookStore.loadWorkbook(nextWorkbook);
+    const nextTitle = buildUntitledWorkbookTitle(language);
     applySession({
-      nextTitle: 'Untitled spreadsheet',
-      nextFileName: 'Untitled spreadsheet.xlsx',
+      nextTitle,
+      nextFileName: `${nextTitle}.xlsx`,
       nextActiveFile: {
         source: 'backend',
-        name: 'Untitled spreadsheet',
+        name: nextTitle,
       },
       navigateTo: 'editor',
     });
     lastPersistedSnapshotRef.current = null;
-  }, [applySession, workbookStore]);
+  }, [applySession, language, workbookStore]);
 
   const handleResumeDraft = useCallback(() => {
     const latest = recentFiles[0];
     if (!latest) return;
     void (async () => {
-      setStorageLoading(true);
       try {
         const record = await getWorkbook(latest.id);
         loadWorkbook(record.workbook);
@@ -253,12 +290,10 @@ function App() {
         const message = error instanceof Error ? error.message : 'Failed to load workbook.';
         setStorageHealthy(false);
         setStorageMessage(message);
-        window.alert(`Open failed: ${message}`);
-      } finally {
-        setStorageLoading(false);
+        window.alert(t(language, 'openFailed', { message }));
       }
     })();
-  }, [loadWorkbook, recentFiles, syncPersistedMetadata]);
+  }, [language, loadWorkbook, recentFiles, syncPersistedMetadata]);
 
   const handleOpenFromDevice = useCallback(() => {
     fileInputRef.current?.click();
@@ -271,44 +306,28 @@ function App() {
     try {
       await openWorkbookFromDeviceFile(file);
     } catch (error) {
-      window.alert(`Open failed: ${String(error)}`);
+      window.alert(t(language, 'openFailed', { message: String(error) }));
     } finally {
       event.target.value = '';
     }
-  }, [openWorkbookFromDeviceFile]);
+  }, [language, openWorkbookFromDeviceFile]);
 
   const handleSave = useCallback(() => {
     void persistWorkbook('manual');
   }, [persistWorkbook]);
 
-  const handleSaveAs = useCallback(() => {
+  const handleDownloadWorkbook = useCallback((record: BackendWorkbookRecord) => {
     try {
-      const fileName = buildWorkbookFileName(currentFileName, title);
-      const blob = buildWorkbookBlob(workbookStore.workbook);
+      const fileName = buildWorkbookFileName(record.currentFileName, record.title);
+      const blob = buildWorkbookBlob(record.workbook);
       downloadWorkbookFile(blob, fileName);
-
-      const descriptor: FileDescriptor = {
-        source: 'device',
-        name: fileName,
-        mimeType: XLSX_MIME_TYPE,
-        modifiedAt: new Date().toISOString(),
-        lastOpenedAt: new Date().toISOString(),
-      };
-
-      applySession({
-        nextTitle: baseNameNoExt(fileName) || title,
-        nextFileName: fileName,
-        nextActiveFile: descriptor,
-        nextBackendWorkbookId: backendWorkbookId,
-      });
     } catch (error) {
-      window.alert(`Save As failed: ${String(error)}`);
+      window.alert(t(language, 'downloadFailed', { message: String(error) }));
     }
-  }, [applySession, backendWorkbookId, currentFileName, title, workbookStore.workbook]);
+  }, [language]);
 
   const handleOpenRecentFile = useCallback((entry: RecentFileEntry) => {
     void (async () => {
-      setStorageLoading(true);
       try {
         const record = await getWorkbook(entry.id);
         loadWorkbook(record.workbook);
@@ -319,41 +338,35 @@ function App() {
         const message = error instanceof Error ? error.message : 'Failed to load workbook.';
         setStorageHealthy(false);
         setStorageMessage(message);
-        window.alert(`Open failed: ${message}`);
-      } finally {
-        setStorageLoading(false);
+        window.alert(t(language, 'openFailed', { message }));
       }
     })();
-  }, [loadWorkbook, syncPersistedMetadata, syncRecentFiles]);
+  }, [language, loadWorkbook, syncPersistedMetadata, syncRecentFiles]);
 
   const handleRenameRecentFile = useCallback((entry: RecentFileEntry) => {
-    const nextTitle = window.prompt('Rename workbook', entry.title)?.trim();
+    const nextTitle = window.prompt(t(language, 'renameWorkbookPrompt'), entry.title)?.trim();
     if (!nextTitle || nextTitle === entry.title) return;
 
     void (async () => {
-      setStorageLoading(true);
       try {
         const record = await renameWorkbookRecord(entry.id, nextTitle);
         if (backendWorkbookId === entry.id) {
-          setTitle(record.title);
+          setTitle(resolveWorkbookTitle(record.title, record.currentFileName));
         }
         await syncRecentFiles();
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Rename failed.';
-        window.alert(`Rename failed: ${message}`);
-      } finally {
-        setStorageLoading(false);
+        window.alert(t(language, 'renameFailed', { message }));
       }
     })();
-  }, [backendWorkbookId, syncRecentFiles]);
+  }, [backendWorkbookId, language, syncRecentFiles]);
 
   const handleDeleteRecentFile = useCallback((entry: RecentFileEntry) => {
-    if (!window.confirm(`Delete "${entry.title}" from saved workbooks?`)) {
+    if (!window.confirm(t(language, 'deleteWorkbookConfirm', { title: entry.title }))) {
       return;
     }
 
     void (async () => {
-      setStorageLoading(true);
       try {
         await deleteWorkbookRecord(entry.id);
         if (backendWorkbookId === entry.id) {
@@ -362,32 +375,22 @@ function App() {
         await syncRecentFiles();
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Delete failed.';
-        window.alert(`Delete failed: ${message}`);
-      } finally {
-        setStorageLoading(false);
+        window.alert(t(language, 'deleteFailed', { message }));
       }
     })();
-  }, [backendWorkbookId, syncRecentFiles]);
+  }, [backendWorkbookId, language, syncRecentFiles]);
 
-  const handleReloadFromBackend = useCallback(() => {
-    if (!backendWorkbookId) return;
+  const handleDownloadRecentFile = useCallback((entry: RecentFileEntry) => {
     void (async () => {
-      setStorageLoading(true);
       try {
-        const record = await getWorkbook(backendWorkbookId);
-        loadWorkbook(record.workbook);
-        syncPersistedMetadata(record);
-        await syncRecentFiles();
+        const record = await getWorkbook(entry.id);
+        handleDownloadWorkbook(record);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Backend reload failed.';
-        setStorageHealthy(false);
-        setStorageMessage(message);
-        window.alert(`Reload failed: ${message}`);
-      } finally {
-        setStorageLoading(false);
+        const message = error instanceof Error ? error.message : 'Download failed.';
+        window.alert(t(language, 'downloadFailed', { message }));
       }
     })();
-  }, [backendWorkbookId, loadWorkbook, syncPersistedMetadata, syncRecentFiles]);
+  }, [handleDownloadWorkbook, language]);
 
   return (
     <>
@@ -401,6 +404,8 @@ function App() {
 
       {screen === 'home' ? (
         <HomeScreen
+          language={language}
+          onLanguageChange={setLanguage}
           draft={draft}
           recentFiles={recentFiles}
           storage={{
@@ -411,25 +416,20 @@ function App() {
           onResumeDraft={handleResumeDraft}
           onCreateBlank={handleCreateBlank}
           onOpenFromDevice={handleOpenFromDevice}
-          onRefreshStorage={() => void syncRecentFiles()}
           onOpenRecentFile={handleOpenRecentFile}
+          onDownloadRecentFile={handleDownloadRecentFile}
           onRenameRecentFile={handleRenameRecentFile}
           onDeleteRecentFile={handleDeleteRecentFile}
         />
       ) : (
         <SpreadsheetScreen
+          language={language}
+          onLanguageChange={setLanguage}
           workbookStore={workbookStore}
-          title={title}
-          currentFileName={currentFileName}
-          activeFile={activeFile}
+          title={resolvedTitle}
           storageSaving={storageSaving}
-          storageLoading={storageLoading}
-          storageHealthy={storageHealthy}
           onGoHome={() => setScreen('home')}
-          onOpenFromDevice={handleOpenFromDevice}
           onSave={handleSave}
-          onSaveAs={handleSaveAs}
-          onReloadFromBackend={handleReloadFromBackend}
           onRenameTitle={setTitle}
         />
       )}

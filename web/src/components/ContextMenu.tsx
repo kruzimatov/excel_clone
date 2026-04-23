@@ -1,10 +1,17 @@
 import { CELL_COLORS, CURRENCIES, type Currency } from '../types';
 import { classNames } from '../utils/classNames';
 import { getDynamicClassName } from '../utils/dynamicStyles';
+import {
+  getCurrencyLabel,
+  getFillColorOptions,
+  t,
+  type AppLanguage,
+} from '../utils/i18n';
 
 import styles from './ContextMenu.module.css';
 
 interface ContextMenuProps {
+  language: AppLanguage;
   visible: boolean;
   position: { x: number; y: number };
   hasClipboard: boolean;
@@ -30,6 +37,7 @@ const FORMULAS = [
 ];
 
 export function ContextMenu({
+  language,
   visible,
   position,
   hasClipboard,
@@ -46,6 +54,8 @@ export function ContextMenu({
   onClear,
 }: ContextMenuProps) {
   if (!visible) return null;
+
+  const fillOptions = getFillColorOptions(language, CELL_COLORS);
 
   const menuWidth = 260;
   const menuHeight = 500;
@@ -64,13 +74,13 @@ export function ContextMenu({
         onClick={(event) => event.stopPropagation()}
       >
         <div className={styles.scrollArea}>
-          <MenuItem icon="📋" label="Copy" onPress={() => { onCopy(); onClose(); }} />
-          <MenuItem icon="✂️" label="Cut" onPress={() => { onCut(); onClose(); }} />
+          <MenuItem icon="📋" label={t(language, 'copy')} onPress={() => { onCopy(); onClose(); }} />
+          <MenuItem icon="✂️" label={t(language, 'cut')} onPress={() => { onCut(); onClose(); }} />
           {hasClipboard ? (
             <>
-              <MenuItem icon="📄" label="Paste" onPress={() => { onPaste('all'); onClose(); }} />
-              <MenuItem icon="🔢" label="Paste value only" onPress={() => { onPaste('value'); onClose(); }} />
-              <MenuItem icon="🎨" label="Paste style only" onPress={() => { onPaste('style'); onClose(); }} />
+              <MenuItem icon="📄" label={t(language, 'paste')} onPress={() => { onPaste('all'); onClose(); }} />
+              <MenuItem icon="🔢" label={t(language, 'pasteValueOnly')} onPress={() => { onPaste('value'); onClose(); }} />
+              <MenuItem icon="🎨" label={t(language, 'pasteStyleOnly')} onPress={() => { onPaste('style'); onClose(); }} />
             </>
           ) : null}
 
@@ -79,14 +89,14 @@ export function ContextMenu({
           {!hasFormatPainter ? (
             <MenuItem
               icon="🖌️"
-              label="Copy format"
-              subtitle="Then select cells & apply"
+              label={t(language, 'copyFormat')}
+              subtitle={t(language, 'copyFormatHint')}
               onPress={() => { onFormatPainterPick(); onClose(); }}
             />
           ) : (
             <MenuItem
               icon="✅"
-              label="Apply format here"
+              label={t(language, 'applyFormatHere')}
               onPress={() => { onFormatPainterApply(); onClose(); }}
               highlight
             />
@@ -94,7 +104,7 @@ export function ContextMenu({
 
           <div className={styles.divider} />
 
-          <div className={styles.sectionTitle}>Formulas</div>
+          <div className={styles.sectionTitle}>{t(language, 'formulas')}</div>
           {FORMULAS.map((formula) => (
             <MenuItem
               key={formula.key}
@@ -106,30 +116,32 @@ export function ContextMenu({
 
           <div className={styles.divider} />
 
-          <div className={styles.sectionTitle}>Fill Color</div>
+          <div className={styles.sectionTitle}>{t(language, 'fillColor')}</div>
           <div className={styles.colorRow}>
-            {CELL_COLORS.map((color) => (
+            {fillOptions.map((option) => (
               <button
-                key={color}
+                key={option.value}
                 type="button"
                 className={classNames(
                   styles.colorDot,
-                  getDynamicClassName('context-color', { backgroundColor: color }),
+                  getDynamicClassName('context-color', { backgroundColor: option.value }),
                 )}
-                onClick={() => { onColor(color); onClose(); }}
+                title={option.label}
+                onClick={() => { onColor(option.value); onClose(); }}
               />
             ))}
           </div>
 
           <div className={styles.divider} />
 
-          <div className={styles.sectionTitle}>Currency</div>
+          <div className={styles.sectionTitle}>{t(language, 'currency')}</div>
           <div className={styles.currencyRow}>
             {CURRENCIES.map((currency) => (
               <button
                 key={currency.key}
                 type="button"
                 className={styles.currencyButton}
+                title={getCurrencyLabel(language, currency.key)}
                 onClick={() => { onCurrency(currency.key); onClose(); }}
               >
                 {currency.symbol}
@@ -141,7 +153,7 @@ export function ContextMenu({
 
           <MenuItem
             icon="🗑️"
-            label="Clear cells"
+            label={t(language, 'clearCells')}
             onPress={() => { onClear(); onClose(); }}
             destructive
           />

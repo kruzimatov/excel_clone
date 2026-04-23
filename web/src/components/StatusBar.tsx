@@ -1,14 +1,16 @@
 import { cellKey, formatNumber } from '../utils/cells';
 import type { Cell, Selection } from '../types';
+import { t, type AppLanguage } from '../utils/i18n';
 
 import styles from './StatusBar.module.css';
 
 interface StatusBarProps {
+  language: AppLanguage;
   cells: Record<string, Cell>;
   selection: Selection;
 }
 
-export function StatusBar({ cells, selection }: StatusBarProps) {
+export function StatusBar({ language, cells, selection }: StatusBarProps) {
   const { start, end } = selection;
   const minRow = Math.min(start.row, end.row);
   const maxRow = Math.max(start.row, end.row);
@@ -41,9 +43,9 @@ export function StatusBar({ cells, selection }: StatusBarProps) {
 
   return (
     <div className={styles.container}>
-      <Stat label="SUM" value={formatNumber(sum)} />
-      <Stat label="AVG" value={formatNumber(avg)} />
-      <Stat label="COUNT" value={String(count)} />
+      <Stat label={t(language, 'statusSum')} value={formatNumber(sum)} />
+      <Stat label={t(language, 'statusAverage')} value={formatNumber(avg)} />
+      <Stat label={t(language, 'statusCount')} value={String(count)} />
     </div>
   );
 }

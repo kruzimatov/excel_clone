@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { RecentFileEntry } from '../types';
 import { classNames } from '../utils/classNames';
+import { formatCompactAppDate, t, type AppLanguage } from '../utils/i18n';
 
+import { LanguageToggle } from './LanguageToggle';
 import styles from './HomeScreen.module.css';
-
-type SourceFilter = 'all' | 'device' | 'backend';
-type SortMode = 'recent' | 'name' | 'source';
 
 interface DraftSummary {
   title: string;
@@ -21,79 +20,44 @@ interface StorageSummary {
 }
 
 interface HomeScreenProps {
+  language: AppLanguage;
+  onLanguageChange: (language: AppLanguage) => void;
   draft: DraftSummary | null;
   recentFiles: RecentFileEntry[];
   storage: StorageSummary;
   onResumeDraft: () => void;
   onCreateBlank: () => void;
   onOpenFromDevice: () => void;
-  onRefreshStorage: () => void;
   onOpenRecentFile: (entry: RecentFileEntry) => void;
+  onDownloadRecentFile: (entry: RecentFileEntry) => void;
   onRenameRecentFile: (entry: RecentFileEntry) => void;
   onDeleteRecentFile: (entry: RecentFileEntry) => void;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Just now';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Just now';
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
-
-function sourceLabel(source: SourceFilter | RecentFileEntry['source']) {
-  if (source === 'backend') return 'Backend';
-  if (source === 'device') return 'Device';
-  return 'All';
-}
-
-function reopenHint(entry: RecentFileEntry) {
-  if (entry.source === 'backend') return 'Tap to open the Postgres snapshot';
-  return 'Tap to reopen the imported workbook';
-}
-
-function compareRecentFiles(left: RecentFileEntry, right: RecentFileEntry, sortMode: SortMode) {
-  if (sortMode === 'name') {
-    return left.title.localeCompare(right.title);
-  }
-
-  if (sortMode === 'source') {
-    const sourceComparison = left.source.localeCompare(right.source);
-    if (sourceComparison !== 0) return sourceComparison;
-    return right.title.localeCompare(left.title);
-  }
-
-  return (
-    new Date(right.lastOpenedAt ?? right.modifiedAt ?? 0).getTime()
-    - new Date(left.lastOpenedAt ?? left.modifiedAt ?? 0).getTime()
-  );
-}
-
 export function HomeScreen({
+  language,
+  onLanguageChange,
   draft,
   recentFiles,
   storage,
   onResumeDraft,
   onCreateBlank,
   onOpenFromDevice,
-  onRefreshStorage,
   onOpenRecentFile,
+  onDownloadRecentFile,
   onRenameRecentFile,
   onDeleteRecentFile,
 }: HomeScreenProps) {
-  const [filter, setFilter] = useState<SourceFilter>('all');
-  const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const filteredRecentFiles = useMemo(() => (
+  const orderedRecentFiles = useMemo(() => (
     recentFiles
-      .filter((entry) => (filter === 'all' ? true : entry.source === filter))
-      .sort((left, right) => compareRecentFiles(left, right, sortMode))
-  ), [filter, recentFiles, sortMode]);
+      .slice()
+      .sort((left, right) => (
+        new Date(right.lastOpenedAt ?? right.modifiedAt ?? 0).getTime()
+        - new Date(left.lastOpenedAt ?? left.modifiedAt ?? 0).getTime()
+      ))
+  ), [recentFiles]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -109,251 +73,131 @@ export function HomeScreen({
 
   return (
     <div className={styles.page}>
-      <header className={styles.hero}>
-        <div className={styles.heroPanel}>
-          <div className={styles.brandRow}>
-            <div className={styles.brandMark}>X</div>
-            <div>
-              <p className={styles.kicker}>Excel Clone Workspace</p>
-              <h1 className={styles.title}>Clean starts, fast recovery, and a home screen built like a workspace.</h1>
-              <p className={styles.subtitle}>
-                New spreadsheets now begin with one real blank sheet. Import `.xlsx` files when needed, then manage your saved sessions from a proper home view.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.heroStats}>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Recent sessions</span>
-              <strong className={styles.statValue}>{recentFiles.length}</strong>
-            </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Storage</span>
-              <strong className={styles.statValue}>{storage.healthy ? 'Online' : 'Offline'}</strong>
-            </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Blank template</span>
-              <strong className={styles.statValue}>1 sheet</strong>
-            </div>
-          </div>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.kicker}>{t(language, 'homeKicker')}</p>
+          <h1 className={styles.title}>{t(language, 'homeTitle')}</h1>
+          <p className={styles.subtitle}>
+            {t(language, 'homeSubtitle')}
+          </p>
         </div>
 
-        <div className={styles.quickActions}>
-          <ActionCard
-            title="Blank spreadsheet"
-            detail="Start a new workbook with 50 visible rows per sheet."
-            actionLabel="Create"
-            onPress={onCreateBlank}
-            accent="green"
-          />
-          <ActionCard
-            title="Open from device"
-            detail="Import an `.xlsx` file from this device."
-            actionLabel="Open file"
-            onPress={onOpenFromDevice}
-            accent="blue"
-          />
-          <ActionCard
-            title="Refresh backend"
-            detail={storage.healthy ? 'Reload saved workbook sessions from Postgres.' : storage.message}
-            actionLabel={storage.ready ? 'Refresh list' : 'Checking backend...'}
-            onPress={onRefreshStorage}
-            accent="gold"
-            disabled={!storage.ready}
-          />
+        <div className={styles.actions}>
+          <LanguageToggle language={language} onChange={onLanguageChange} />
+          <button type="button" className={styles.primaryButton} onClick={onCreateBlank}>
+            {t(language, 'newSpreadsheet')}
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={onOpenFromDevice}>
+            {t(language, 'openFile')}
+          </button>
         </div>
       </header>
 
+      {!storage.healthy ? (
+        <div className={styles.notice}>
+          {storage.ready ? t(language, 'storageUnavailable') : t(language, 'checkingFiles')}
+        </div>
+      ) : null}
+
       <main className={styles.content}>
-        <section className={styles.mainColumn}>
-          {draft ? (
-            <div className={styles.resumeCard}>
-              <div>
-                <p className={styles.sectionEyebrow}>Latest session</p>
-                <h2 className={styles.sectionTitle}>{draft.title}</h2>
-                <p className={styles.sectionMeta}>
-                  Saved {formatDate(draft.savedAt)}
-                  {draft.currentFileName ? ` • ${draft.currentFileName}` : ''}
-                </p>
-              </div>
-              <button type="button" className={styles.primaryButton} onClick={onResumeDraft}>
-                Resume draft
-              </button>
-            </div>
-          ) : null}
-
-          <div className={styles.sectionHeader}>
+        {draft ? (
+          <section className={styles.resumeCard}>
             <div>
-              <p className={styles.sectionEyebrow}>Recent files</p>
-              <h2 className={styles.sectionTitle}>Open, rename, or clean up saved workbooks</h2>
+              <p className={styles.sectionEyebrow}>{t(language, 'latestSession')}</p>
+              <h2 className={styles.sectionTitle}>{draft.title}</h2>
+              <p className={styles.sectionMeta}>
+                {formatCompactAppDate(language, draft.savedAt)}
+                {draft.currentFileName ? ` • ${draft.currentFileName}` : ''}
+              </p>
             </div>
-            <div className={styles.controls}>
-              <div className={styles.filters}>
-                {(['all', 'device', 'backend'] as const).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={classNames(styles.filterButton, filter === item && styles.filterButtonActive)}
-                    onClick={() => setFilter(item)}
-                  >
-                    {sourceLabel(item)}
-                  </button>
-                ))}
-              </div>
-              <label className={styles.sortControl}>
-                <span>Sort</span>
-                <select
-                  value={sortMode}
-                  onChange={(event) => setSortMode(event.target.value as SortMode)}
-                >
-                  <option value="recent">Most recent</option>
-                  <option value="name">Name</option>
-                  <option value="source">Source</option>
-                </select>
-              </label>
+            <button type="button" className={styles.primaryButton} onClick={onResumeDraft}>
+              {t(language, 'continue')}
+            </button>
+          </section>
+        ) : null}
+
+        <section className={styles.listCard}>
+          <div className={styles.listHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>{t(language, 'files')}</p>
+              <h2 className={styles.sectionTitle}>{t(language, 'recent')}</h2>
             </div>
           </div>
 
-          <div className={styles.listCard}>
-            {filteredRecentFiles.length > 0 ? filteredRecentFiles.map((entry) => (
-              <article key={entry.id} className={styles.fileRow}>
-                <button
-                  type="button"
-                  className={styles.fileMain}
-                  onClick={() => onOpenRecentFile(entry)}
-                >
-                  <div className={styles.fileInfo}>
-                    <strong>{entry.title}</strong>
-                    <span>{entry.currentFileName || entry.name}</span>
-                    <span>{reopenHint(entry)}</span>
-                  </div>
-                  <div className={styles.fileMeta}>
-                    <span className={styles.sourcePill}>{sourceLabel(entry.source as SourceFilter)}</span>
-                    <span>{formatDate(entry.lastOpenedAt || entry.modifiedAt)}</span>
-                  </div>
-                </button>
-                <div className={styles.fileActions}>
-                  <button
-                    type="button"
-                    className={styles.menuButton}
-                    aria-label={`Actions for ${entry.title}`}
-                    onClick={() => setOpenMenuId((current) => current === entry.id ? null : entry.id)}
-                  >
-                    •••
-                  </button>
-                  {openMenuId === entry.id ? (
-                    <div className={styles.menuCard}>
-                      <button
-                        type="button"
-                        className={styles.menuItem}
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          onRenameRecentFile(entry);
-                        }}
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        className={classNames(styles.menuItem, styles.menuItemDanger)}
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          onDeleteRecentFile(entry);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </article>
-            )) : (
-              <div className={styles.emptyState}>
-                <strong>No recent files yet.</strong>
-                <span>Create a workbook or import an `.xlsx` file to start building your backend session history.</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className={styles.sideColumn}>
-          <div className={styles.driveCard}>
-            <div className={styles.sectionHeaderCompact}>
-              <div>
-                <p className={styles.sectionEyebrow}>Backend</p>
-                <h2 className={styles.sectionTitle}>Postgres storage</h2>
-              </div>
-              <span className={classNames(styles.driveStatus, storage.healthy && styles.driveStatusActive)}>
-                {storage.ready ? (storage.healthy ? 'Connected' : 'Unavailable') : 'Checking'}
-              </span>
-            </div>
-
-            <p className={styles.driveCopy}>
-              Workbook snapshots and recents now live behind an Express API backed by PostgreSQL so we can scale saves and recovery cleanly.
-            </p>
-
-            <div className={styles.warningBox}>{storage.message}</div>
-
-            <div className={styles.driveActions}>
+          {orderedRecentFiles.length > 0 ? orderedRecentFiles.map((entry, index) => (
+            <article key={entry.id} className={styles.fileRow}>
               <button
                 type="button"
-                className={styles.primaryButton}
-                onClick={onRefreshStorage}
-                disabled={!storage.ready}
+                className={styles.fileMain}
+                onClick={() => onOpenRecentFile(entry)}
               >
-                {storage.ready ? 'Refresh sessions' : 'Checking backend...'}
+                <div className={styles.fileInfo}>
+                  <strong>{entry.title}</strong>
+                </div>
+                <div className={styles.fileMeta}>
+                  <span>{formatCompactAppDate(language, entry.lastOpenedAt || entry.modifiedAt)}</span>
+                </div>
               </button>
-            </div>
 
-            <div className={styles.driveList}>
-              {recentFiles.length > 0 ? recentFiles.slice(0, 4).map((entry) => (
-                <div key={entry.id} className={styles.driveFileRow}>
-                  <div className={styles.fileInfo}>
-                    <strong>{entry.title}</strong>
-                    <span>{entry.currentFileName || entry.name}</span>
+              <div className={styles.fileActions}>
+                <button
+                  type="button"
+                  className={styles.menuButton}
+                  aria-label={t(language, 'actionsForFile', { title: entry.title })}
+                  onClick={() => setOpenMenuId((current) => current === entry.id ? null : entry.id)}
+                >
+                  •••
+                </button>
+
+                {openMenuId === entry.id ? (
+                  <div
+                    className={classNames(
+                      styles.menuCard,
+                      index >= orderedRecentFiles.length - 2 && styles.menuCardTop,
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className={styles.menuItem}
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        onDownloadRecentFile(entry);
+                      }}
+                    >
+                      {t(language, 'download')}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.menuItem}
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        onRenameRecentFile(entry);
+                      }}
+                    >
+                      {t(language, 'rename')}
+                    </button>
+                    <button
+                      type="button"
+                      className={classNames(styles.menuItem, styles.menuItemDanger)}
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        onDeleteRecentFile(entry);
+                      }}
+                    >
+                      {t(language, 'delete')}
+                    </button>
                   </div>
-                  <span className={styles.linkHint}>{sourceLabel(entry.source)}</span>
-                </div>
-              )) : (
-                <div className={styles.emptyState}>
-                  <strong>{storage.healthy ? 'Saved workbooks will appear here.' : 'Backend connection is not ready yet.'}</strong>
-                  <span>{storage.healthy ? 'The newest backend sessions show up here for quick access.' : 'Start the backend and refresh the storage panel to enable server-side saving.'}</span>
-                </div>
-              )}
+                ) : null}
+              </div>
+            </article>
+          )) : (
+            <div className={styles.emptyState}>
+              <strong>{t(language, 'noFiles')}</strong>
+              <span>{t(language, 'noFilesHint')}</span>
             </div>
-          </div>
-        </aside>
+          )}
+        </section>
       </main>
-    </div>
-  );
-}
-
-interface ActionCardProps {
-  title: string;
-  detail: string;
-  actionLabel: string;
-  onPress: () => void;
-  accent: 'green' | 'blue' | 'gold';
-  disabled?: boolean;
-}
-
-function ActionCard({
-  title,
-  detail,
-  actionLabel,
-  onPress,
-  accent,
-  disabled = false,
-}: ActionCardProps) {
-  return (
-    <div className={classNames(styles.actionCard, styles[`actionCard${accent[0].toUpperCase()}${accent.slice(1)}`])}>
-      <div>
-        <h2>{title}</h2>
-        <p>{detail}</p>
-      </div>
-      <button type="button" className={styles.actionButton} onClick={onPress} disabled={disabled}>
-        {actionLabel}
-      </button>
     </div>
   );
 }

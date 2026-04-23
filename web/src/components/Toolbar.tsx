@@ -4,6 +4,14 @@ import { CELL_COLORS, CURRENCIES, type Currency } from '../types';
 import { classNames } from '../utils/classNames';
 import { getDynamicClassName } from '../utils/dynamicStyles';
 import { filterFunctions, type FunctionMeta } from '../utils/functionMetadata';
+import {
+  getCurrencyHint,
+  getCurrencyLabel,
+  getFillColorOptions,
+  getTextColorOptions,
+  t,
+  type AppLanguage,
+} from '../utils/i18n';
 
 import { FunctionSuggestions } from './FunctionSuggestions';
 import styles from './Toolbar.module.css';
@@ -18,32 +26,6 @@ interface MenuAnchor {
   placement: MenuPlacement;
 }
 
-const FILL_OPTIONS = [
-  { value: CELL_COLORS[0], label: 'White' },
-  { value: CELL_COLORS[1], label: 'Mint' },
-  { value: CELL_COLORS[2], label: 'Green' },
-  { value: CELL_COLORS[3], label: 'Sky' },
-  { value: CELL_COLORS[4], label: 'Rose' },
-  { value: CELL_COLORS[5], label: 'Yellow' },
-  { value: CELL_COLORS[6], label: 'Blue' },
-  { value: CELL_COLORS[7], label: 'Sage' },
-  { value: CELL_COLORS[8], label: 'Peach' },
-  { value: CELL_COLORS[9], label: 'Gray' },
-];
-
-const TEXT_COLOR_OPTIONS = [
-  { value: '#000000', label: 'Black' },
-  { value: '#CC0000', label: 'Red' },
-  { value: '#006600', label: 'Green' },
-  { value: '#0000CC', label: 'Blue' },
-  { value: '#993399', label: 'Purple' },
-  { value: '#CC6600', label: 'Orange' },
-  { value: '#555555', label: 'Gray' },
-  { value: '#FF0000', label: 'Bright red' },
-  { value: '#00AA00', label: 'Bright green' },
-  { value: '#3366FF', label: 'Accent blue' },
-];
-
 const MENU_DIMENSIONS: Record<Exclude<ActiveMenu, null>, { width: number; height: number }> = {
   fill: { width: 296, height: 250 },
   text: { width: 296, height: 250 },
@@ -51,6 +33,7 @@ const MENU_DIMENSIONS: Record<Exclude<ActiveMenu, null>, { width: number; height
 };
 
 interface ToolbarProps {
+  language: AppLanguage;
   selectedCellRef: string;
   formulaInput: string;
   isBoldActive: boolean;
@@ -82,6 +65,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
+  language,
   selectedCellRef,
   formulaInput,
   isBoldActive,
@@ -117,9 +101,22 @@ export function Toolbar({
   const [menusOpen, setMenusOpen] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
 
+  const fillOptions = getFillColorOptions(language, CELL_COLORS);
+  const textColorOptions = getTextColorOptions(language, [
+    '#000000',
+    '#CC0000',
+    '#006600',
+    '#0000CC',
+    '#993399',
+    '#CC6600',
+    '#555555',
+    '#FF0000',
+    '#00AA00',
+    '#3366FF',
+  ]);
   const currentCurrency = CURRENCIES.find((item) => item.key === selectedCurrency) ?? null;
-  const fillLabel = FILL_OPTIONS.find((option) => option.value === selectedFillColor)?.label ?? 'Custom';
-  const textLabel = TEXT_COLOR_OPTIONS.find((option) => option.value === selectedTextColor)?.label ?? 'Custom';
+  const fillLabel = fillOptions.find((option) => option.value === selectedFillColor)?.label ?? t(language, 'custom');
+  const textLabel = textColorOptions.find((option) => option.value === selectedTextColor)?.label ?? t(language, 'custom');
 
   function handleFormulaChange(text: string) {
     if (text.startsWith('=')) {
@@ -210,15 +207,14 @@ export function Toolbar({
     <section className={styles.container}>
       <div className={styles.toolbarHeader}>
         <div className={styles.toolbarHeaderText}>
-          <strong>Top menus</strong>
-          <span>Open and close the toolbar controls without losing the formula bar.</span>
+          <strong>{t(language, 'topMenus')}</strong>
         </div>
         <button
           type="button"
           className={styles.toolbarToggle}
           onClick={() => setMenusOpen((current) => !current)}
         >
-          {menusOpen ? 'Hide menus' : 'Show menus'}
+          {menusOpen ? t(language, 'hideMenus') : t(language, 'showMenus')}
         </button>
       </div>
 
@@ -237,36 +233,36 @@ export function Toolbar({
           <div className={styles.groupCard}>
             <ActionChip
               icon="-"
-              label="Cells"
+              label={t(language, 'cells')}
               detail={`${cellScalePercent}%`}
               onPress={onDecreaseCellSize}
               disabled={!canDecreaseCellSize}
             />
             <ActionChip
               icon="+"
-              label="Cells"
-              detail="Bigger"
+              label={t(language, 'cells')}
+              detail={t(language, 'bigger')}
               onPress={onIncreaseCellSize}
               disabled={!canIncreaseCellSize}
             />
           </div>
 
           <div className={styles.groupCard}>
-            <ActionChip icon="↶" label="Undo" onPress={onUndoPress} disabled={!canUndo} />
-            <ActionChip icon="↷" label="Redo" onPress={onRedoPress} disabled={!canRedo} />
+            <ActionChip icon="↶" label={t(language, 'undo')} onPress={onUndoPress} disabled={!canUndo} />
+            <ActionChip icon="↷" label={t(language, 'redo')} onPress={onRedoPress} disabled={!canRedo} />
           </div>
 
           <div className={styles.groupCard}>
             <ActionChip
               icon="B"
-              label="Bold"
+              label={t(language, 'bold')}
               onPress={onBoldPress}
               active={isBoldActive}
               emphasis="bold"
             />
             <ActionChip
               icon="I"
-              label="Italic"
+              label={t(language, 'italic')}
               onPress={onItalicPress}
               active={isItalicActive}
               emphasis="italic"
@@ -275,7 +271,7 @@ export function Toolbar({
 
           <div className={classNames(styles.groupCard, styles.dropdownGroup)}>
             <ActionChip
-              label="Fill"
+              label={t(language, 'fill')}
               detail={fillLabel}
               onPress={(event) => toggleMenu('fill', event)}
               active={activeMenu === 'fill'}
@@ -284,7 +280,7 @@ export function Toolbar({
             />
             <ActionChip
               icon="A"
-              label="Text"
+              label={t(language, 'text')}
               detail={textLabel}
               onPress={(event) => toggleMenu('text', event)}
               active={activeMenu === 'text'}
@@ -293,8 +289,8 @@ export function Toolbar({
             />
             <ActionChip
               icon={currentCurrency?.symbol ?? '123'}
-              label="Currency"
-              detail={currentCurrency?.label ?? 'Plain number'}
+              label={t(language, 'currency')}
+              detail={getCurrencyLabel(language, selectedCurrency)}
               onPress={(event) => toggleMenu('currency', event)}
               active={activeMenu === 'currency'}
               dropdown
@@ -320,7 +316,7 @@ export function Toolbar({
               onFormulaSubmit();
             }
           }}
-          placeholder="Type value or =СУММ"
+          placeholder={t(language, 'typeValueOrSum')}
           spellCheck={false}
         />
         {formulaInput.length > 0 ? (
@@ -331,6 +327,7 @@ export function Toolbar({
       </div>
 
       <FunctionSuggestions
+        language={language}
         suggestions={suggestions}
         onSelect={handleFunctionSelect}
         visible={suggestions.length > 0 || showAllFunctions}
@@ -338,7 +335,8 @@ export function Toolbar({
 
       {activeMenu === 'fill' && menuAnchor ? (
         <PickerCard
-          title="Fill color"
+          title={t(language, 'fillColor')}
+          doneLabel={t(language, 'done')}
           onClose={() => {
             setActiveMenu(null);
             setMenuAnchor(null);
@@ -347,7 +345,7 @@ export function Toolbar({
           compact
         >
           <div className={styles.colorGrid}>
-            {FILL_OPTIONS.map((option) => (
+            {fillOptions.map((option) => (
               <ColorOption
                 key={option.value}
                 label={option.label}
@@ -366,7 +364,8 @@ export function Toolbar({
 
       {activeMenu === 'text' && menuAnchor ? (
         <PickerCard
-          title="Text color"
+          title={t(language, 'textColor')}
+          doneLabel={t(language, 'done')}
           onClose={() => {
             setActiveMenu(null);
             setMenuAnchor(null);
@@ -375,7 +374,7 @@ export function Toolbar({
           compact
         >
           <div className={styles.colorGrid}>
-            {TEXT_COLOR_OPTIONS.map((option) => (
+            {textColorOptions.map((option) => (
               <ColorOption
                 key={option.value}
                 label={option.label}
@@ -394,7 +393,8 @@ export function Toolbar({
 
       {activeMenu === 'currency' && menuAnchor ? (
         <PickerCard
-          title="Currency format"
+          title={t(language, 'currencyFormat')}
+          doneLabel={t(language, 'done')}
           onClose={() => {
             setActiveMenu(null);
             setMenuAnchor(null);
@@ -403,7 +403,7 @@ export function Toolbar({
           compact
         >
           <div className={styles.listOptions}>
-            {[...CURRENCIES, { key: '', symbol: '123', label: 'Plain number' }].map((currency) => (
+            {[...CURRENCIES, { key: '', symbol: '123', label: t(language, 'plainNumber') }].map((currency) => (
               <button
                 key={currency.key || 'plain'}
                 type="button"
@@ -419,11 +419,9 @@ export function Toolbar({
               >
                 <span className={styles.listIconWrap}>{currency.symbol}</span>
                 <span className={styles.listTextWrap}>
-                  <span className={styles.listLabel}>{currency.label}</span>
+                  <span className={styles.listLabel}>{getCurrencyLabel(language, currency.key as Currency)}</span>
                   <span className={styles.listHint}>
-                    {currency.key
-                      ? `Format values as ${currency.symbol}`
-                      : 'Keep numbers without a currency sign'}
+                    {getCurrencyHint(language, currency.key as Currency, currency.symbol)}
                   </span>
                 </span>
                 {selectedCurrency === currency.key ? <span className={styles.listCheck}>✓</span> : null}
@@ -512,12 +510,14 @@ function ActionChip({
 
 function PickerCard({
   title,
+  doneLabel,
   onClose,
   anchor,
   compact,
   children,
 }: {
   title: string;
+  doneLabel: string;
   onClose: () => void;
   anchor: MenuAnchor;
   compact?: boolean;
@@ -535,7 +535,7 @@ function PickerCard({
       <div className={styles.pickerHeader}>
         <span className={styles.pickerTitle}>{title}</span>
         <button type="button" className={styles.doneButton} onClick={onClose}>
-          Done
+          {doneLabel}
         </button>
       </div>
       {children}

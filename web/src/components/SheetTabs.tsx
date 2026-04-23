@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { Sheet } from '../types';
 import { classNames } from '../utils/classNames';
 import { getDynamicClassName } from '../utils/dynamicStyles';
+import { buildDefaultSheetName, t, type AppLanguage } from '../utils/i18n';
 
 import styles from './SheetTabs.module.css';
 
 interface SheetTabsProps {
+  language: AppLanguage;
   sheets: Sheet[];
   activeSheetId: string;
   onSwitchSheet: (id: string) => void;
@@ -16,6 +18,7 @@ interface SheetTabsProps {
 }
 
 export function SheetTabs({
+  language,
   sheets,
   activeSheetId,
   onSwitchSheet,
@@ -65,7 +68,7 @@ export function SheetTabs({
   }
 
   function handleAddSheet() {
-    setNewSheetName(`Sheet ${sheets.length + 1}`);
+    setNewSheetName(buildDefaultSheetName(language, sheets.length + 1));
     setAddingSheet(true);
   }
 
@@ -173,7 +176,7 @@ export function SheetTabs({
                     cancelAdd();
                   }
                 }}
-                placeholder="Sheet name"
+                placeholder={t(language, 'sheetName')}
               />
             </div>
           ) : (
@@ -197,21 +200,21 @@ export function SheetTabs({
             onClick={(event) => event.stopPropagation()}
           >
             <button type="button" className={styles.menuItem} onClick={() => beginRename(menu.sheet)}>
-              Rename
+              {t(language, 'rename')}
             </button>
             <button
               type="button"
               className={classNames(styles.menuItem, styles.menuItemDanger)}
               onClick={() => {
                 if (sheets.length <= 1) {
-                  window.alert('Cannot delete the last sheet');
-                } else if (window.confirm(`Delete "${menu.sheet.name}"?`)) {
+                  window.alert(t(language, 'cannotDeleteLastSheet'));
+                } else if (window.confirm(t(language, 'deleteSheetConfirm', { name: menu.sheet.name }))) {
                   onDeleteSheet(menu.sheet.id);
                 }
                 setMenu(null);
               }}
             >
-              Delete
+              {t(language, 'delete')}
             </button>
           </div>
         </div>

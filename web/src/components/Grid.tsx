@@ -10,6 +10,7 @@ import type { Cell, Selection } from '../types';
 import { cellKey, colToLetter, getDisplayValue } from '../utils/cells';
 import { classNames } from '../utils/classNames';
 import { getDynamicClassName } from '../utils/dynamicStyles';
+import { t, type AppLanguage } from '../utils/i18n';
 
 import { SelectionHandle } from './SelectionHandle';
 import styles from './Grid.module.css';
@@ -40,6 +41,7 @@ function getBaseSizes(viewportWidth: number, viewportHeight: number) {
 }
 
 interface GridProps {
+  language: AppLanguage;
   cells: Record<string, Cell>;
   selection: Selection;
   editingCell: string | null;
@@ -60,6 +62,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function Grid({
+  language,
   cells,
   selection,
   editingCell,
@@ -393,7 +396,7 @@ export function Grid({
 
   const selectionText = isMultiSelect
     ? (formulaSelectionMode
-      ? `Range for formula: ${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`
+      ? `${t(language, 'range')}: ${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`
       : `${cellKey(minRow, minCol)}:${cellKey(maxRow, maxCol)}`)
     : null;
 

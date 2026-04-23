@@ -1,54 +1,24 @@
 .page {
-  background:
-    radial-gradient(circle at top right, rgba(66, 133, 244, 0.12), transparent 30%),
-    radial-gradient(circle at left center, rgba(33, 115, 70, 0.1), transparent 28%),
-    linear-gradient(180deg, #f5f8f2 0%, #f4f7fb 42%, #ffffff 100%);
+  background: #f5f7fa;
   color: #202124;
   min-height: 100vh;
-  padding: 24px;
+  padding: 20px 24px 32px;
 }
 
-.hero {
+.header {
+  align-items: end;
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin: 0 auto 22px;
-  max-width: 1280px;
+  gap: 20px;
+  justify-content: space-between;
+  margin: 0 auto 16px;
+  max-width: 1440px;
 }
 
-.heroPanel {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.56), transparent 26%),
-    linear-gradient(135deg, rgba(20, 91, 54, 0.98) 0%, rgba(31, 115, 70, 0.95) 55%, rgba(17, 62, 124, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 32px;
-  box-shadow: 0 28px 70px rgba(13, 41, 28, 0.28);
-  color: #f4fff9;
-  display: grid;
-  gap: 22px;
-  grid-template-columns: minmax(0, 1.9fr) minmax(240px, 0.9fr);
-  padding: 28px;
-}
-
-.brandRow {
-  align-items: flex-start;
+.actions {
   display: flex;
-  gap: 18px;
-}
-
-.brandMark {
-  align-items: center;
-  background: linear-gradient(135deg, #217346 0%, #1a9c5f 100%);
-  border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(33, 115, 70, 0.18);
-  color: #ffffff;
-  display: flex;
-  flex: 0 0 auto;
-  font-size: 28px;
-  font-weight: 800;
-  height: 64px;
-  justify-content: center;
-  width: 64px;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .kicker,
@@ -61,158 +31,72 @@
   text-transform: uppercase;
 }
 
-.heroPanel .kicker,
-.heroPanel .title,
-.heroPanel .subtitle {
-  color: inherit;
-}
-
-.heroPanel .subtitle {
-  color: rgba(244, 255, 249, 0.8);
-}
-
 .title {
-  font-size: clamp(32px, 4vw, 52px);
-  line-height: 1.05;
-  margin: 0 0 12px;
-  max-width: 840px;
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.08;
+  margin: 0 0 8px;
 }
 
 .subtitle {
   color: #4d5156;
-  font-size: 16px;
+  font-size: 15px;
   margin: 0;
-  max-width: 760px;
+  max-width: 620px;
 }
 
-.heroStats {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-}
-
-.statCard {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-  min-height: 108px;
-  padding: 18px;
-}
-
-.statLabel {
-  color: rgba(244, 255, 249, 0.72);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.statValue {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.quickActions {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.actionCard {
-  border: 1px solid rgba(32, 33, 36, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 20px 48px rgba(32, 33, 36, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  justify-content: space-between;
-  min-height: 176px;
-  padding: 18px;
-}
-
-.actionCard h2,
-.sectionTitle {
-  font-size: 24px;
-  margin: 0 0 8px;
-}
-
-.actionCard p,
-.driveCopy,
-.sectionMeta,
-.emptyState span,
-.fileInfo span {
-  color: #5f6368;
-  margin: 0;
-}
-
-.actionCardGreen {
-  background: linear-gradient(180deg, #eff9f2 0%, #ffffff 100%);
-}
-
-.actionCardBlue {
-  background: linear-gradient(180deg, #eef5ff 0%, #ffffff 100%);
-}
-
-.actionCardGold {
-  background: linear-gradient(180deg, #fff8ea 0%, #ffffff 100%);
-}
-
-.actionButton,
 .primaryButton,
-.filterButton,
-.fileRow,
-.driveFileRow {
+.secondaryButton,
+.fileMain {
   font: inherit;
 }
 
-.actionButton,
-.primaryButton {
+.primaryButton,
+.secondaryButton {
   align-items: center;
-  background: #202124;
-  border: 0;
-  border-radius: 14px;
-  color: #ffffff;
+  border-radius: 12px;
   cursor: pointer;
   display: inline-flex;
   font-weight: 700;
   justify-content: center;
-  min-height: 46px;
-  padding: 0 18px;
+  min-height: 42px;
+  padding: 0 16px;
   white-space: nowrap;
 }
 
-.actionButton:disabled,
-.primaryButton:disabled {
-  cursor: default;
-  opacity: 0.55;
+.primaryButton {
+  background: #217346;
+  border: 0;
+  color: #ffffff;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  border: 1px solid rgba(32, 33, 36, 0.12);
+  color: #202124;
+}
+
+.notice,
+.resumeCard,
+.listCard {
+  background: #ffffff;
+  border: 1px solid rgba(32, 33, 36, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(32, 33, 36, 0.06);
+}
+
+.notice {
+  color: #7a5800;
+  margin: 0 auto 16px;
+  max-width: 1440px;
+  padding: 12px 14px;
 }
 
 .content {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
-  margin: 0 auto;
-  max-width: 1280px;
-}
-
-.mainColumn,
-.sideColumn {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.resumeCard,
-.listCard,
-.driveCard {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(32, 33, 36, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 22px 50px rgba(32, 33, 36, 0.08);
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 1440px;
 }
 
 .resumeCard {
@@ -223,89 +107,51 @@
   padding: 18px 20px;
 }
 
+.resumeCard .primaryButton {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sectionTitle {
+  font-size: 22px;
+  margin: 0 0 8px;
+}
+
+.sectionMeta,
+.emptyState span,
+.fileInfo span {
+  color: #5f6368;
+  margin: 0;
+}
+
 .sectionMeta {
   font-size: 14px;
 }
 
-.sectionHeader,
-.sectionHeaderCompact {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.controls {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-.filters {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-}
-
-.sortControl {
-  align-items: center;
-  color: #5f6368;
-  display: inline-flex;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.sortControl select {
-  appearance: none;
-  background: #ffffff;
-  border: 1px solid rgba(32, 33, 36, 0.12);
-  border-radius: 12px;
-  color: #202124;
-  font: inherit;
-  min-height: 40px;
-  padding: 0 14px;
-}
-
-.filterButton {
-  background: #eef2f7;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  color: #3c4043;
-  cursor: pointer;
-  min-height: 38px;
-  padding: 0 14px;
-}
-
-.filterButtonActive {
-  background: #d7eadb;
-  border-color: #9cc7a9;
-  color: #134f2d;
-}
-
 .listCard {
-  overflow: hidden;
+  overflow: visible;
 }
 
-.fileRow,
-.driveFileRow {
+.listHeader {
+  border-bottom: 1px solid rgba(32, 33, 36, 0.08);
+  padding: 16px 22px 12px;
+}
+
+.fileRow {
   align-items: center;
   border-top: 1px solid rgba(32, 33, 36, 0.08);
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  padding: 18px 22px;
+  position: relative;
+  padding: 14px 22px;
 }
 
-.fileRow:first-child,
-.driveFileRow:first-child {
+.fileRow:first-child {
   border-top: 0;
 }
 
-.fileRow:hover,
-.driveFileRow:hover {
+.fileRow:hover {
   background: #f7faff;
 }
 
@@ -325,24 +171,24 @@
 .fileInfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   min-width: 0;
 }
 
 .fileInfo strong {
   font-size: 16px;
+  line-height: 1.2;
 }
 
 .fileMeta {
-  align-items: flex-end;
   color: #5f6368;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .fileActions {
+  align-self: center;
+  flex-shrink: 0;
   position: relative;
 }
 
@@ -354,12 +200,12 @@
   color: #3c4043;
   cursor: pointer;
   display: inline-flex;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  height: 40px;
+  height: 36px;
   justify-content: center;
   letter-spacing: 0.1em;
-  width: 40px;
+  width: 36px;
 }
 
 .menuCard {
@@ -373,6 +219,11 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: 8;
+}
+
+.menuCardTop {
+  bottom: calc(100% + 8px);
+  top: auto;
 }
 
 .menuItem {
@@ -395,77 +246,68 @@
   color: #b3261e;
 }
 
-.sourcePill,
-.driveStatus {
-  align-items: center;
-  background: #eef2f7;
-  border-radius: 999px;
-  color: #3c4043;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 28px;
-  padding: 0 12px;
-}
-
-.driveStatusActive {
-  background: #d7eadb;
-  color: #134f2d;
-}
-
-.driveCard {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px;
-}
-
-.driveCopy {
-  line-height: 1.6;
-}
-
-.warningBox {
-  background: #fff6dd;
-  border: 1px solid #f2c94c;
-  border-radius: 16px;
-  color: #6d4c00;
-  padding: 14px 16px;
-}
-
-.driveActions {
-  display: flex;
-}
-
-.driveList {
-  border-top: 1px solid rgba(32, 33, 36, 0.08);
-  margin-top: 4px;
-  padding-top: 4px;
-}
-
-.linkHint {
-  color: #1a73e8;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .emptyState {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 18px 4px 4px;
+  padding: 22px;
 }
 
-@media (max-width: 1120px) {
-  .heroPanel {
-    grid-template-columns: 1fr;
+@media (max-width: 900px) {
+  .page {
+    padding: 16px 16px 28px;
   }
 
-  .quickActions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .header,
+  .resumeCard {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .content {
-    grid-template-columns: 1fr;
+  .header {
+    gap: 14px;
+  }
+
+  .resumeCard {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .fileRow {
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .fileMain {
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .fileMeta {
+    align-items: center;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .fileActions {
+    align-self: flex-start;
+    margin-left: auto;
+  }
+
+  .menuCard,
+  .menuCardTop {
+    bottom: auto;
+    right: 0;
+    top: calc(100% + 8px);
   }
 }
 
@@ -474,133 +316,26 @@
     padding: 18px;
   }
 
-  .quickActions {
-    grid-template-columns: 1fr;
-  }
-
-  .resumeCard,
-  .sectionHeader,
-  .sectionHeaderCompact,
-  .fileRow,
-  .driveFileRow {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .fileMain {
-    align-items: flex-start;
+  .actions {
     flex-direction: column;
     width: 100%;
   }
 
-  .controls {
-    align-items: stretch;
-    flex-direction: column;
+  .actions > * {
     width: 100%;
   }
 
-  .sortControl {
-    justify-content: space-between;
-    width: 100%;
-  }
-
-  .sortControl select {
-    width: 100%;
-  }
-
-  .fileMeta {
-    align-items: flex-start;
-  }
-}
-
-@media (min-width: 700px) and (max-width: 1180px) and (max-height: 1100px) {
-  .page {
-    padding: 16px;
-  }
-
-  .hero {
-    gap: 14px;
-    margin-bottom: 16px;
-  }
-
-  .heroPanel {
-    border-radius: 24px;
-    padding: 22px;
-  }
-
-  .brandMark {
-    border-radius: 14px;
-    font-size: 22px;
-    height: 52px;
-    width: 52px;
-  }
-
-  .title {
-    font-size: clamp(24px, 3.2vw, 38px);
-    margin-bottom: 8px;
-  }
-
-  .subtitle {
-    font-size: 14px;
-    max-width: 680px;
-  }
-
-  .quickActions {
-    gap: 12px;
-  }
-
-  .statCard {
-    border-radius: 18px;
-    min-height: 88px;
-    padding: 14px;
-  }
-
-  .statValue {
-    font-size: 22px;
-  }
-
-  .actionCard {
-    border-radius: 18px;
-    gap: 12px;
-    min-height: 144px;
-    padding: 16px;
-  }
-
-  .actionCard h2,
-  .sectionTitle {
-    font-size: 18px;
-    margin-bottom: 6px;
-  }
-
-  .actionCard p,
-  .driveCopy,
-  .sectionMeta,
-  .emptyState span,
-  .fileInfo span {
-    font-size: 13px;
-  }
-
-  .actionButton,
   .primaryButton,
-  .filterButton {
-    border-radius: 12px;
-    min-height: 40px;
-    padding: 0 14px;
+  .secondaryButton {
+    width: 100%;
   }
 
-  .resumeCard,
-  .listCard,
-  .driveCard {
-    border-radius: 18px;
+  .fileRow {
+    padding: 12px 16px;
   }
 
-  .resumeCard,
-  .driveCard {
-    padding: 16px;
-  }
-
-  .fileRow,
-  .driveFileRow {
-    padding: 14px 16px;
+  .menuCard,
+  .menuCardTop {
+    min-width: 148px;
   }
 }

@@ -12,23 +12,16 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  padding: 8px 12px 0;
+  padding: 8px 12px 2px;
 }
 
 .toolbarHeaderText {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .toolbarHeaderText strong {
   color: #334155;
   font-size: 12px;
-}
-
-.toolbarHeaderText span {
-  color: #64748b;
-  font-size: 11px;
 }
 
 .toolbarToggle {
@@ -42,8 +35,8 @@
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 10px;
 }
 
 .toolPanels {
@@ -73,8 +66,8 @@
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-shrink: 0;
-  gap: 8px;
-  padding: 6px;
+  gap: 6px;
+  padding: 5px;
 }
 
 .dropdownGroup {
@@ -89,11 +82,11 @@
   color: inherit;
   cursor: pointer;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: space-between;
-  min-height: 36px;
-  min-width: 62px;
-  padding: 6px 8px;
+  min-height: 34px;
+  min-width: 58px;
+  padding: 5px 7px;
 }
 
 .actionChipDisabled {
@@ -108,7 +101,7 @@
 .actionMain {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .actionIcon {
