@@ -7,42 +7,63 @@
   z-index: 30;
 }
 
+.containerRibbon {
+  background: transparent;
+  border-bottom: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  gap: 8px;
+  min-width: 0;
+}
+
+.containerFormula {
+  background: #f6f8fb;
+}
+
+.formulaWrap {
+  position: relative;
+  z-index: 60;
+}
+
 .toolbarHeader {
   align-items: center;
   display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 8px 12px 2px;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 4px 8px 0;
 }
 
-.toolbarHeaderText {
-  display: flex;
-}
-
-.toolbarHeaderText strong {
-  color: #334155;
-  font-size: 12px;
+.toolbarHeaderRibbon {
+  padding: 0;
 }
 
 .toolbarToggle {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d6dee8;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 999px;
-  color: #334155;
+  color: #ffffff;
   cursor: pointer;
   display: inline-flex;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 26px;
+  padding: 0;
+  width: 26px;
 }
 
 .toolPanels {
   max-height: 220px;
   overflow: visible;
   transition: max-height 220ms ease, opacity 220ms ease, padding 220ms ease;
+}
+
+.toolPanelsRibbon {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .toolPanelsClosed {
@@ -53,21 +74,39 @@
 }
 
 .toolRow {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 10px 12px 10px;
-}
-
-.groupCard {
   background: #ffffff;
   border: 1px solid #e3e8ef;
   border-radius: 16px;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
   display: flex;
-  flex-shrink: 0;
   gap: 6px;
-  padding: 5px;
+  overflow-x: auto;
+  margin: 0 12px 8px;
+  padding: 6px 8px 8px;
+}
+
+.toolRowRibbon {
+  margin: 0;
+  min-width: max-content;
+  padding: 3px 4px;
+}
+
+.groupCard {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid #e7edf5;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 0 5px 0 0;
+}
+
+.groupCard:last-child {
+  border-right: 0;
+  padding-right: 0;
 }
 
 .dropdownGroup {
@@ -84,9 +123,14 @@
   display: flex;
   gap: 6px;
   justify-content: space-between;
-  min-height: 34px;
-  min-width: 58px;
-  padding: 5px 7px;
+  min-height: 32px;
+  min-width: 54px;
+  padding: 4px 6px;
+}
+
+.actionChipCompact {
+  min-width: 30px;
+  padding: 4px 5px;
 }
 
 .actionChipDisabled {
@@ -101,13 +145,13 @@
 .actionMain {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .actionIcon {
   color: #334155;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 13px;
   justify-content: center;
   min-width: 16px;
 }
@@ -132,8 +176,8 @@
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   display: inline-flex;
-  height: 18px;
-  width: 18px;
+  height: 16px;
+  width: 16px;
 }
 
 .actionTextWrap {
@@ -145,7 +189,7 @@
 
 .actionLabel {
   color: #334155;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -164,7 +208,7 @@
 
 .actionChevron {
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 9px;
 }
 
 .actionChevronActive {
@@ -176,6 +220,16 @@
   display: flex;
   gap: 8px;
   padding: 2px 12px 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.formulaField {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
 }
 
 .cellRefBox {
@@ -416,13 +470,21 @@
 
 @media (max-width: 720px) {
   .toolbarHeader {
-    align-items: flex-start;
-    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .containerRibbon {
+    width: 100%;
   }
 
   .formulaBar {
     display: grid;
     grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  }
+
+  .formulaField {
+    display: flex;
+    grid-column: 4 / 6;
   }
 
   .pickerCard {
@@ -436,21 +498,21 @@
 @media (min-width: 700px) and (max-width: 1400px) and (max-height: 1100px) {
   .toolRow {
     gap: 6px;
-    padding: 6px 10px;
+    margin: 0 10px 6px;
+    padding: 5px 6px;
   }
 
   .groupCard {
-    border-radius: 12px;
     gap: 4px;
-    padding: 4px;
+    padding: 0 4px 0 0;
   }
 
   .actionChip {
     border-radius: 8px;
     gap: 5px;
-    min-height: 30px;
-    min-width: 48px;
-    padding: 4px 6px;
+    min-height: 28px;
+    min-width: 32px;
+    padding: 4px 5px;
   }
 
   .actionMain {

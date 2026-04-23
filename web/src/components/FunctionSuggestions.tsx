@@ -1,3 +1,6 @@
+import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+
 import type { FunctionMeta } from '../utils/functionMetadata';
 import { getFunctionDescription, t, type AppLanguage } from '../utils/i18n';
 
@@ -8,6 +11,7 @@ interface FunctionSuggestionsProps {
   suggestions: FunctionMeta[];
   onSelect: (func: FunctionMeta) => void;
   visible: boolean;
+  anchorStyle?: CSSProperties;
 }
 
 export function FunctionSuggestions({
@@ -15,12 +19,13 @@ export function FunctionSuggestions({
   suggestions,
   onSelect,
   visible,
+  anchorStyle,
 }: FunctionSuggestionsProps) {
-  if (!visible || suggestions.length === 0) {
+  if (!visible || suggestions.length === 0 || !anchorStyle) {
     return null;
   }
 
-  return (
+  const content = (
     <div className={styles.container} role="listbox" aria-label={t(language, 'functionSuggestions')}>
       <div className={styles.scrollArea}>
         {suggestions.map((func) => (
@@ -39,5 +44,16 @@ export function FunctionSuggestions({
         ))}
       </div>
     </div>
+  );
+
+  if (typeof document === 'undefined') {
+    return content;
+  }
+
+  return createPortal(
+    <div className={styles.layer} style={anchorStyle}>
+      {content}
+    </div>,
+    document.body,
   );
 }

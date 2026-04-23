@@ -25,8 +25,6 @@ import {
 import {
   buildDefaultWorkbookTitle,
   buildUntitledWorkbookTitle,
-  getStoredLanguage,
-  persistLanguage,
   t,
   type AppLanguage,
 } from './utils/i18n';
@@ -93,14 +91,13 @@ function App() {
   const loadWorkbook = workbookStore.loadWorkbook;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastPersistedSnapshotRef = useRef<string | null>(null);
-
-  const [language, setLanguage] = useState<AppLanguage>(() => getStoredLanguage());
+  const language: AppLanguage = 'ru';
   const [screen, setScreen] = useState<Screen>('home');
-  const [title, setTitle] = useState(() => buildDefaultWorkbookTitle(getStoredLanguage()));
+  const [title, setTitle] = useState(() => buildDefaultWorkbookTitle(language));
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState<FileDescriptor | null>({
     source: 'backend',
-    name: buildDefaultWorkbookTitle(getStoredLanguage()),
+    name: buildDefaultWorkbookTitle(language),
   });
   const [backendWorkbookId, setBackendWorkbookId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReturnType<typeof buildDraftSummary>>(null);
@@ -187,10 +184,6 @@ function App() {
     });
     lastPersistedSnapshotRef.current = null;
   }, [applySession, workbookStore]);
-
-  useEffect(() => {
-    persistLanguage(language);
-  }, [language]);
 
   useEffect(() => {
     void (async () => {
@@ -405,7 +398,6 @@ function App() {
       {screen === 'home' ? (
         <HomeScreen
           language={language}
-          onLanguageChange={setLanguage}
           draft={draft}
           recentFiles={recentFiles}
           storage={{
@@ -424,7 +416,6 @@ function App() {
       ) : (
         <SpreadsheetScreen
           language={language}
-          onLanguageChange={setLanguage}
           workbookStore={workbookStore}
           title={resolvedTitle}
           storageSaving={storageSaving}

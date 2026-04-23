@@ -7,7 +7,6 @@ import type { WorkbookStore } from '../store/useWorkbook';
 
 import { ContextMenu } from './ContextMenu';
 import { Grid } from './Grid';
-import { LanguageToggle } from './LanguageToggle';
 import { SheetTabs } from './SheetTabs';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
@@ -32,7 +31,6 @@ function formatRangeRef(
 
 interface SpreadsheetScreenProps {
   language: AppLanguage;
-  onLanguageChange: (language: AppLanguage) => void;
   workbookStore: WorkbookStore;
   title: string;
   storageSaving: boolean;
@@ -43,7 +41,6 @@ interface SpreadsheetScreenProps {
 
 export function SpreadsheetScreen({
   language,
-  onLanguageChange,
   workbookStore,
   title,
   storageSaving,
@@ -358,26 +355,26 @@ export function SpreadsheetScreen({
     [workbookStore.selection],
   );
 
-  const rangeSelectionLabel = !rangeSelectionAnchor
-    ? t(language, 'range')
-    : rangeSelectionEnd
-      ? t(language, 'confirm')
-      : t(language, 'cancel');
-
   const rangeSelectionDetail = !rangeSelectionAnchor
-    ? t(language, 'rangeStartHint')
+    ? t(language, 'range')
     : rangeSelectionEnd
       ? formatRangeRef(rangeSelectionAnchor, rangeSelectionEnd)
       : rangeSelectionAnchor.row === -1
-        ? t(language, 'rangePickFirstCell')
-        : t(language, 'rangePickEndFrom', { cell: cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col) });
+        ? '1'
+        : cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col);
 
   return (
     <div className={styles.container}>
       <header className={styles.topBar}>
         <div className={styles.brandBlock}>
-          <button type="button" className={styles.homeButton} onClick={onGoHome}>
-            {t(language, 'home')}
+          <button
+            type="button"
+            className={styles.homeButton}
+            onClick={onGoHome}
+            aria-label={t(language, 'home')}
+            title={t(language, 'home')}
+          >
+            <span className={styles.homeIcon} aria-hidden="true">⌂</span>
           </button>
           <div className={styles.titleWrap}>
             {editingTitle ? (
@@ -415,8 +412,41 @@ export function SpreadsheetScreen({
           </div>
         </div>
 
+        <div className={styles.ribbonSlot}>
+          <Toolbar
+            mode="ribbon"
+            language={language}
+            selectedCellRef={selectedCellRef}
+            formulaInput={workbookStore.formulaInput}
+            isBoldActive={!!currentCell?.style?.bold}
+            isItalicActive={!!currentCell?.style?.italic}
+            selectedFillColor={currentCell?.style?.bgColor || '#FFFFFF'}
+            selectedTextColor={currentCell?.style?.textColor || '#000000'}
+            selectedCurrency={currentCell?.style?.currency || ''}
+            rangeSelectionActive={!!rangeSelectionAnchor}
+            rangeSelectionDetail={rangeSelectionDetail}
+            cellScalePercent={Math.round(cellScale * 100)}
+            canDecreaseCellSize={cellScale > MIN_CELL_SCALE}
+            canIncreaseCellSize={cellScale < MAX_CELL_SCALE}
+            onFormulaChange={workbookStore.setFormulaInput}
+            onFormulaFocus={() => {}}
+            onFormulaSubmit={handleFormulaSubmit}
+            onBoldPress={handleBoldPress}
+            onItalicPress={handleItalicPress}
+            onColorPress={handleColorPress}
+            onTextColorPress={handleTextColorPress}
+            onCurrencyPress={handleCurrencyPress}
+            onUndoPress={workbookStore.undo}
+            onRedoPress={workbookStore.redo}
+            onToggleRangeSelection={handleToggleRangeSelection}
+            onDecreaseCellSize={() => setCellScale((current) => Math.max(MIN_CELL_SCALE, Number((current - CELL_SCALE_STEP).toFixed(2))))}
+            onIncreaseCellSize={() => setCellScale((current) => Math.min(MAX_CELL_SCALE, Number((current + CELL_SCALE_STEP).toFixed(2))))}
+            canUndo={workbookStore.canUndo}
+            canRedo={workbookStore.canRedo}
+          />
+        </div>
+
         <div className={styles.actions}>
-          <LanguageToggle language={language} onChange={onLanguageChange} tone="dark" />
           <button type="button" className={styles.saveButton} onClick={onSave} disabled={storageSaving}>
             {storageSaving ? t(language, 'saving') : t(language, 'save')}
           </button>
@@ -424,6 +454,7 @@ export function SpreadsheetScreen({
       </header>
 
       <Toolbar
+        mode="formula"
         language={language}
         selectedCellRef={selectedCellRef}
         formulaInput={workbookStore.formulaInput}
@@ -433,7 +464,6 @@ export function SpreadsheetScreen({
         selectedTextColor={currentCell?.style?.textColor || '#000000'}
         selectedCurrency={currentCell?.style?.currency || ''}
         rangeSelectionActive={!!rangeSelectionAnchor}
-        rangeSelectionLabel={rangeSelectionLabel}
         rangeSelectionDetail={rangeSelectionDetail}
         cellScalePercent={Math.round(cellScale * 100)}
         canDecreaseCellSize={cellScale > MIN_CELL_SCALE}
@@ -458,11 +488,9 @@ export function SpreadsheetScreen({
       {workbookStore.rangeSelectionMode ? (
         <div className={styles.rangeBar}>
           <span className={styles.rangeText}>
-            {t(language, 'rangeSelectSecondCell', {
-              cell: workbookStore.rangeStart
-                ? cellKey(workbookStore.rangeStart.row, workbookStore.rangeStart.col)
-                : '',
-            })}
+            {workbookStore.rangeStart
+              ? `2: ${cellKey(workbookStore.rangeStart.row, workbookStore.rangeStart.col)}`
+              : '2'}
           </span>
           <button type="button" className={styles.rangeButton} onClick={workbookStore.cancelRangeSelection}>
             {t(language, 'cancel')}
@@ -472,7 +500,7 @@ export function SpreadsheetScreen({
 
       {rangeSelectionAnchor?.row === -1 && rangeSelectionAnchor?.col === -1 ? (
         <div className={styles.rangeBar}>
-          <span className={styles.rangeText}>{t(language, 'rangeModeTapFirst')}</span>
+          <span className={styles.rangeText}>1</span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
             {t(language, 'cancel')}
           </button>
@@ -481,11 +509,7 @@ export function SpreadsheetScreen({
 
       {rangeSelectionAnchor && rangeSelectionAnchor.row !== -1 && rangeSelectionEnd === null ? (
         <div className={styles.rangeBar}>
-          <span className={styles.rangeText}>
-            {t(language, 'rangeModeTapSecond', {
-              cell: cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col),
-            })}
-          </span>
+          <span className={styles.rangeText}>2: {cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}</span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
             {t(language, 'cancel')}
           </button>
@@ -495,9 +519,7 @@ export function SpreadsheetScreen({
       {rangeSelectionAnchor && rangeSelectionEnd ? (
         <div className={styles.rangeBar}>
           <span className={styles.rangeText}>
-            {t(language, 'rangeSelected', {
-              range: `${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}:${cellKey(rangeSelectionEnd.row, rangeSelectionEnd.col)}`,
-            })}
+            {`${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}:${cellKey(rangeSelectionEnd.row, rangeSelectionEnd.col)}`}
           </span>
           <button type="button" className={styles.rangeButton} onClick={handleToggleRangeSelection}>
             {t(language, 'clear')}

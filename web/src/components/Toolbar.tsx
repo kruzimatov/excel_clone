@@ -1,4 +1,11 @@
-import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 
 import { CELL_COLORS, CURRENCIES, type Currency } from '../types';
 import { classNames } from '../utils/classNames';
@@ -18,12 +25,17 @@ import styles from './Toolbar.module.css';
 
 type ActiveMenu = 'fill' | 'text' | 'currency' | null;
 type MenuPlacement = 'top' | 'bottom';
+type ToolbarMode = 'all' | 'ribbon' | 'formula';
 
 interface MenuAnchor {
   top: number;
   left: number;
   width: number;
   placement: MenuPlacement;
+}
+
+interface SuggestionsAnchor {
+  style: CSSProperties;
 }
 
 const MENU_DIMENSIONS: Record<Exclude<ActiveMenu, null>, { width: number; height: number }> = {
@@ -33,6 +45,7 @@ const MENU_DIMENSIONS: Record<Exclude<ActiveMenu, null>, { width: number; height
 };
 
 interface ToolbarProps {
+  mode?: ToolbarMode;
   language: AppLanguage;
   selectedCellRef: string;
   formulaInput: string;
@@ -42,7 +55,6 @@ interface ToolbarProps {
   selectedTextColor: string;
   selectedCurrency: Currency;
   rangeSelectionActive: boolean;
-  rangeSelectionLabel: string;
   rangeSelectionDetail: string;
   cellScalePercent: number;
   canDecreaseCellSize: boolean;
@@ -65,6 +77,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
+  mode = 'all',
   language,
   selectedCellRef,
   formulaInput,
@@ -74,7 +87,6 @@ export function Toolbar({
   selectedTextColor,
   selectedCurrency,
   rangeSelectionActive,
-  rangeSelectionLabel,
   rangeSelectionDetail,
   cellScalePercent,
   canDecreaseCellSize,
@@ -100,6 +112,8 @@ export function Toolbar({
   const [showAllFunctions, setShowAllFunctions] = useState(false);
   const [menusOpen, setMenusOpen] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
+  const [suggestionsAnchor, setSuggestionsAnchor] = useState<SuggestionsAnchor | null>(null);
+  const formulaFieldRef = useRef<HTMLDivElement | null>(null);
 
   const fillOptions = getFillColorOptions(language, CELL_COLORS);
   const textColorOptions = getTextColorOptions(language, [
@@ -142,6 +156,56 @@ export function Toolbar({
     setSuggestions(filterFunctions(''));
     onFormulaFocus();
   }
+
+  useEffect(() => {
+    const suggestionsVisible = suggestions.length > 0 || showAllFunctions;
+    if (!suggestionsVisible) {
+      setSuggestionsAnchor(null);
+      return;
+    }
+
+    function updateSuggestionsAnchor() {
+      const anchorElement = formulaFieldRef.current;
+      if (!anchorElement) {
+        setSuggestionsAnchor(null);
+        return;
+      }
+
+      const rect = anchorElement.getBoundingClientRect();
+      const margin = 12;
+      const gap = 6;
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
+      const availableHeight = Math.max(140, Math.min(280, openAbove ? spaceAbove - gap : spaceBelow - gap));
+
+      setSuggestionsAnchor({
+        style: openAbove
+          ? {
+              bottom: `${Math.max(margin, viewportHeight - rect.top + gap)}px`,
+              left: `${Math.max(margin, rect.left)}px`,
+              maxHeight: `${availableHeight}px`,
+              width: `${Math.max(220, rect.width)}px`,
+            }
+          : {
+              left: `${Math.max(margin, rect.left)}px`,
+              maxHeight: `${availableHeight}px`,
+              top: `${rect.bottom + gap}px`,
+              width: `${Math.max(220, rect.width)}px`,
+            },
+      });
+    }
+
+    updateSuggestionsAnchor();
+    window.addEventListener('resize', updateSuggestionsAnchor);
+    window.addEventListener('scroll', updateSuggestionsAnchor, true);
+
+    return () => {
+      window.removeEventListener('resize', updateSuggestionsAnchor);
+      window.removeEventListener('scroll', updateSuggestionsAnchor, true);
+    };
+  }, [showAllFunctions, suggestions]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -204,136 +268,162 @@ export function Toolbar({
   }
 
   return (
-    <section className={styles.container}>
-      <div className={styles.toolbarHeader}>
-        <div className={styles.toolbarHeaderText}>
-          <strong>{t(language, 'topMenus')}</strong>
-        </div>
+    <section className={classNames(
+      styles.container,
+      mode === 'ribbon' && styles.containerRibbon,
+      mode === 'formula' && styles.containerFormula,
+    )}
+    >
+      {mode !== 'formula' ? (
+        <>
+      <div className={classNames(styles.toolbarHeader, mode === 'ribbon' && styles.toolbarHeaderRibbon)}>
         <button
           type="button"
           className={styles.toolbarToggle}
           onClick={() => setMenusOpen((current) => !current)}
+          aria-label={t(language, 'menu')}
+          title={t(language, 'menu')}
         >
-          {menusOpen ? t(language, 'hideMenus') : t(language, 'showMenus')}
+          {menusOpen ? '☰' : '☷'}
         </button>
       </div>
 
-      <div className={classNames(styles.toolPanels, !menusOpen && styles.toolPanelsClosed)}>
-        <div className={styles.toolRow}>
+      <div className={classNames(
+        styles.toolPanels,
+        mode === 'ribbon' && styles.toolPanelsRibbon,
+        !menusOpen && styles.toolPanelsClosed,
+      )}
+      >
+        <div className={classNames(styles.toolRow, mode === 'ribbon' && styles.toolRowRibbon)}>
           <div className={styles.groupCard}>
             <ActionChip
-              icon="[]"
-              label={rangeSelectionLabel}
-              detail={rangeSelectionDetail}
+              icon="▦"
+              ariaLabel={`${t(language, 'range')}: ${rangeSelectionDetail}`}
+              label={t(language, 'range')}
               onPress={onToggleRangeSelection}
               active={rangeSelectionActive}
+              compact={mode !== 'ribbon'}
             />
           </div>
 
           <div className={styles.groupCard}>
             <ActionChip
               icon="-"
-              label={t(language, 'cells')}
-              detail={`${cellScalePercent}%`}
+              ariaLabel={`${t(language, 'cells')} -`}
+              title={`${t(language, 'cells')} - ${cellScalePercent}%`}
               onPress={onDecreaseCellSize}
               disabled={!canDecreaseCellSize}
+              compact
             />
             <ActionChip
               icon="+"
-              label={t(language, 'cells')}
-              detail={t(language, 'bigger')}
+              ariaLabel={`${t(language, 'cells')} +`}
               onPress={onIncreaseCellSize}
               disabled={!canIncreaseCellSize}
+              compact
             />
           </div>
 
           <div className={styles.groupCard}>
-            <ActionChip icon="↶" label={t(language, 'undo')} onPress={onUndoPress} disabled={!canUndo} />
-            <ActionChip icon="↷" label={t(language, 'redo')} onPress={onRedoPress} disabled={!canRedo} />
+            <ActionChip icon="↶" ariaLabel={t(language, 'undo')} onPress={onUndoPress} disabled={!canUndo} compact />
+            <ActionChip icon="↷" ariaLabel={t(language, 'redo')} onPress={onRedoPress} disabled={!canRedo} compact />
           </div>
 
           <div className={styles.groupCard}>
             <ActionChip
               icon="B"
-              label={t(language, 'bold')}
+              ariaLabel={t(language, 'bold')}
               onPress={onBoldPress}
               active={isBoldActive}
               emphasis="bold"
+              compact
             />
             <ActionChip
               icon="I"
-              label={t(language, 'italic')}
+              ariaLabel={t(language, 'italic')}
               onPress={onItalicPress}
               active={isItalicActive}
               emphasis="italic"
+              compact
             />
           </div>
 
           <div className={classNames(styles.groupCard, styles.dropdownGroup)}>
             <ActionChip
-              label={t(language, 'fill')}
-              detail={fillLabel}
+              ariaLabel={`${t(language, 'fill')}: ${fillLabel}`}
               onPress={(event) => toggleMenu('fill', event)}
               active={activeMenu === 'fill'}
               dropdown
               swatchColor={selectedFillColor}
+              compact
             />
             <ActionChip
               icon="A"
-              label={t(language, 'text')}
-              detail={textLabel}
+              ariaLabel={`${t(language, 'text')}: ${textLabel}`}
               onPress={(event) => toggleMenu('text', event)}
               active={activeMenu === 'text'}
               dropdown
               iconColor={selectedTextColor}
+              compact
             />
             <ActionChip
               icon={currentCurrency?.symbol ?? '123'}
-              label={t(language, 'currency')}
-              detail={getCurrencyLabel(language, selectedCurrency)}
+              ariaLabel={`${t(language, 'currency')}: ${getCurrencyLabel(language, selectedCurrency)}`}
               onPress={(event) => toggleMenu('currency', event)}
               active={activeMenu === 'currency'}
               dropdown
+              compact
             />
           </div>
         </div>
       </div>
+        </>
+      ) : null}
 
-      <div className={styles.formulaBar}>
-        <div className={styles.cellRefBox}>{selectedCellRef}</div>
-        <div className={styles.fxBadge}>fx</div>
-        <button type="button" className={styles.functionButton} onClick={handleOpenFunctions}>
-          ƒ
-        </button>
-        <input
-          className={styles.formulaInput}
-          value={formulaInput}
-          onChange={(event) => handleFormulaChange(event.target.value)}
-          onFocus={onFormulaFocus}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              onFormulaSubmit();
-            }
-          }}
-          placeholder={t(language, 'typeValueOrSum')}
-          spellCheck={false}
-        />
-        {formulaInput.length > 0 ? (
-          <button type="button" className={styles.submitButton} onClick={onFormulaSubmit}>
-            ✓
+      {mode !== 'ribbon' ? (
+        <>
+      <div className={styles.formulaWrap}>
+        <div className={styles.formulaBar}>
+          <div className={styles.cellRefBox}>{selectedCellRef}</div>
+          <div className={styles.fxBadge}>fx</div>
+          <button type="button" className={styles.functionButton} onClick={handleOpenFunctions}>
+            ƒ
           </button>
-        ) : null}
+          <div className={styles.formulaField} ref={formulaFieldRef}>
+            <input
+              className={styles.formulaInput}
+              value={formulaInput}
+              onChange={(event) => handleFormulaChange(event.target.value)}
+              onFocus={onFormulaFocus}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  onFormulaSubmit();
+                }
+              }}
+              placeholder={t(language, 'typeValueOrSum')}
+              spellCheck={false}
+            />
+            {formulaInput.length > 0 ? (
+              <button type="button" className={styles.submitButton} onClick={onFormulaSubmit}>
+                ✓
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <FunctionSuggestions
+          anchorStyle={suggestionsAnchor?.style}
+          language={language}
+          suggestions={suggestions}
+          onSelect={handleFunctionSelect}
+          visible={suggestions.length > 0 || showAllFunctions}
+        />
       </div>
+        </>
+      ) : null}
 
-      <FunctionSuggestions
-        language={language}
-        suggestions={suggestions}
-        onSelect={handleFunctionSelect}
-        visible={suggestions.length > 0 || showAllFunctions}
-      />
-
-      {activeMenu === 'fill' && menuAnchor ? (
+      {(mode === 'all' || mode === 'ribbon') && activeMenu === 'fill' && menuAnchor ? (
         <PickerCard
           title={t(language, 'fillColor')}
           doneLabel={t(language, 'done')}
@@ -362,7 +452,7 @@ export function Toolbar({
         </PickerCard>
       ) : null}
 
-      {activeMenu === 'text' && menuAnchor ? (
+      {(mode === 'all' || mode === 'ribbon') && activeMenu === 'text' && menuAnchor ? (
         <PickerCard
           title={t(language, 'textColor')}
           doneLabel={t(language, 'done')}
@@ -391,7 +481,7 @@ export function Toolbar({
         </PickerCard>
       ) : null}
 
-      {activeMenu === 'currency' && menuAnchor ? (
+      {(mode === 'all' || mode === 'ribbon') && activeMenu === 'currency' && menuAnchor ? (
         <PickerCard
           title={t(language, 'currencyFormat')}
           doneLabel={t(language, 'done')}
@@ -436,8 +526,10 @@ export function Toolbar({
 
 function ActionChip({
   icon,
+  ariaLabel,
   label,
   detail,
+  title,
   onPress,
   disabled,
   active,
@@ -445,10 +537,13 @@ function ActionChip({
   emphasis,
   swatchColor,
   iconColor,
+  compact,
 }: {
   icon?: string;
-  label: string;
+  ariaLabel: string;
+  label?: string;
   detail?: string;
+  title?: string;
   onPress: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   active?: boolean;
@@ -456,6 +551,7 @@ function ActionChip({
   emphasis?: 'bold' | 'italic';
   swatchColor?: string;
   iconColor?: string;
+  compact?: boolean;
 }) {
   const swatchClass = swatchColor
     ? getDynamicClassName('toolbar-swatch', { backgroundColor: swatchColor })
@@ -463,17 +559,21 @@ function ActionChip({
   const iconClass = iconColor
     ? getDynamicClassName('toolbar-icon', { color: iconColor })
     : '';
+  const hasText = Boolean(label || detail) && !compact;
 
   return (
     <button
       type="button"
       className={classNames(
         styles.actionChip,
+        compact && styles.actionChipCompact,
         disabled && styles.actionChipDisabled,
         active && styles.actionChipActive,
       )}
       onClick={onPress}
       disabled={disabled}
+      aria-label={ariaLabel}
+      title={title ?? ariaLabel}
     >
       <span className={styles.actionMain}>
         {swatchColor ? (
@@ -492,16 +592,18 @@ function ActionChip({
             {icon}
           </span>
         )}
-        <span className={styles.actionTextWrap}>
-          <span className={classNames(styles.actionLabel, active && styles.actionLabelActive)}>
-            {label}
-          </span>
-          {detail ? (
-            <span className={classNames(styles.actionDetail, active && styles.actionDetailActive)}>
-              {detail}
+        {hasText ? (
+          <span className={styles.actionTextWrap}>
+            <span className={classNames(styles.actionLabel, active && styles.actionLabelActive)}>
+              {label}
             </span>
-          ) : null}
-        </span>
+            {detail ? (
+              <span className={classNames(styles.actionDetail, active && styles.actionDetailActive)}>
+                {detail}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </span>
       {dropdown ? <span className={classNames(styles.actionChevron, active && styles.actionChevronActive)}>▾</span> : null}
     </button>

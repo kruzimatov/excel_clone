@@ -4,7 +4,6 @@ import type { RecentFileEntry } from '../types';
 import { classNames } from '../utils/classNames';
 import { formatCompactAppDate, t, type AppLanguage } from '../utils/i18n';
 
-import { LanguageToggle } from './LanguageToggle';
 import styles from './HomeScreen.module.css';
 
 interface DraftSummary {
@@ -21,7 +20,6 @@ interface StorageSummary {
 
 interface HomeScreenProps {
   language: AppLanguage;
-  onLanguageChange: (language: AppLanguage) => void;
   draft: DraftSummary | null;
   recentFiles: RecentFileEntry[];
   storage: StorageSummary;
@@ -36,7 +34,6 @@ interface HomeScreenProps {
 
 export function HomeScreen({
   language,
-  onLanguageChange,
   draft,
   recentFiles,
   storage,
@@ -83,7 +80,6 @@ export function HomeScreen({
         </div>
 
         <div className={styles.actions}>
-          <LanguageToggle language={language} onChange={onLanguageChange} />
           <button type="button" className={styles.primaryButton} onClick={onCreateBlank}>
             {t(language, 'newSpreadsheet')}
           </button>
