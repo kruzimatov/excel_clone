@@ -1,7 +1,7 @@
 export type CellValue = string | number | null;
 
 export type Currency = 'USD' | 'RUB' | 'UZS' | 'EUR' | '';
-export type FileSource = 'local' | 'device' | 'appscript' | 'google-drive';
+export type FileSource = 'backend' | 'device';
 
 export interface CellStyle {
   bold?: boolean;

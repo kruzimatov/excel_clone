@@ -3,14 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "mobile"
+    "web",
+    "backend"
   ],
   "scripts": {
-    "start": "cd mobile && npm start",
-    "ios": "cd mobile && npm run ios",
-    "android": "cd mobile && npm run android",
-    "web": "cd web && npm run dev",
-    "web:build": "cd web && npm run build",
-    "mobile:web": "cd mobile && npm run web"
+    "dev": "concurrently -k -n backend,web -c green,blue \"npm run dev --workspace backend\" \"npm run dev --workspace web\"",
+    "dev:web": "npm run dev --workspace web",
+    "dev:backend": "npm run dev --workspace backend",
+    "build": "npm run build --workspace backend && npm run build --workspace web",
+    "build:web": "npm run build --workspace web",
+    "build:backend": "npm run build --workspace backend",
+    "start": "npm run start --workspace backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

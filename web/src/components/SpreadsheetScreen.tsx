@@ -30,10 +30,10 @@ function formatRangeRef(
 }
 
 function formatSourceLabel(file: FileDescriptor | null) {
-  if (!file) return 'Local browser draft';
-  if (file.source === 'appscript') return 'Apps Script storage';
-  if (file.source === 'device') return 'Device file';
-  return 'Local browser draft';
+  if (!file) return 'Backend workspace';
+  if (file.source === 'backend') return 'Postgres workspace';
+  if (file.source === 'device') return 'Imported device file';
+  return 'Backend workspace';
 }
 
 interface SpreadsheetScreenProps {
@@ -41,14 +41,14 @@ interface SpreadsheetScreenProps {
   title: string;
   currentFileName: string | null;
   activeFile: FileDescriptor | null;
-  localSaving: boolean;
-  remoteLoading: boolean;
-  remoteConfigured: boolean;
+  storageSaving: boolean;
+  storageLoading: boolean;
+  storageHealthy: boolean;
   onGoHome: () => void;
   onOpenFromDevice: () => void;
   onSave: () => void;
   onSaveAs: () => void;
-  onLoadRemote: () => void;
+  onReloadFromBackend: () => void;
   onRenameTitle: (value: string) => void;
 }
 
@@ -57,14 +57,14 @@ export function SpreadsheetScreen({
   title,
   currentFileName,
   activeFile,
-  localSaving,
-  remoteLoading,
-  remoteConfigured,
+  storageSaving,
+  storageLoading,
+  storageHealthy,
   onGoHome,
   onOpenFromDevice,
   onSave,
   onSaveAs,
-  onLoadRemote,
+  onReloadFromBackend,
   onRenameTitle,
 }: SpreadsheetScreenProps) {
   const storeRef = useRef(workbookStore);
@@ -386,11 +386,11 @@ export function SpreadsheetScreen({
         ? 'Tap first cell'
         : `Pick end from ${cellKey(rangeSelectionAnchor.row, rangeSelectionAnchor.col)}`;
 
-  const remoteButtonLabel = !remoteConfigured
-    ? 'Apps Script setup'
-    : remoteLoading
-      ? 'Loading storage...'
-      : 'Load storage';
+  const remoteButtonLabel = storageLoading
+    ? 'Reloading...'
+    : storageHealthy
+      ? 'Reload backend'
+      : 'Backend offline';
 
   return (
     <div className={styles.container}>
@@ -451,8 +451,8 @@ export function SpreadsheetScreen({
           <button type="button" className={styles.openButton} onClick={onOpenFromDevice}>
             Open
           </button>
-          <button type="button" className={styles.saveButton} onClick={onSave} disabled={localSaving}>
-            {localSaving ? 'Saving...' : 'Save'}
+          <button type="button" className={styles.saveButton} onClick={onSave} disabled={storageSaving}>
+            {storageSaving ? 'Saving...' : 'Save'}
           </button>
           <button type="button" className={styles.secondaryButton} onClick={onSaveAs}>
             Save As
@@ -460,8 +460,8 @@ export function SpreadsheetScreen({
           <button
             type="button"
             className={styles.driveButton}
-            onClick={onLoadRemote}
-            disabled={!remoteConfigured || remoteLoading}
+            onClick={onReloadFromBackend}
+            disabled={!storageHealthy || storageLoading}
           >
             {remoteButtonLabel}
           </button>
