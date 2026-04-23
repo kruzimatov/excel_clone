@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { RecentFileEntry } from '../types';
 import { classNames } from '../utils/classNames';
@@ -6,6 +6,7 @@ import { classNames } from '../utils/classNames';
 import styles from './HomeScreen.module.css';
 
 type SourceFilter = 'all' | 'device' | 'backend';
+type SortMode = 'recent' | 'name' | 'source';
 
 interface DraftSummary {
   title: string;
@@ -28,6 +29,8 @@ interface HomeScreenProps {
   onOpenFromDevice: () => void;
   onRefreshStorage: () => void;
   onOpenRecentFile: (entry: RecentFileEntry) => void;
+  onRenameRecentFile: (entry: RecentFileEntry) => void;
+  onDeleteRecentFile: (entry: RecentFileEntry) => void;
 }
 
 function formatDate(value?: string | null) {
@@ -53,6 +56,23 @@ function reopenHint(entry: RecentFileEntry) {
   return 'Tap to reopen the imported workbook';
 }
 
+function compareRecentFiles(left: RecentFileEntry, right: RecentFileEntry, sortMode: SortMode) {
+  if (sortMode === 'name') {
+    return left.title.localeCompare(right.title);
+  }
+
+  if (sortMode === 'source') {
+    const sourceComparison = left.source.localeCompare(right.source);
+    if (sourceComparison !== 0) return sourceComparison;
+    return right.title.localeCompare(left.title);
+  }
+
+  return (
+    new Date(right.lastOpenedAt ?? right.modifiedAt ?? 0).getTime()
+    - new Date(left.lastOpenedAt ?? left.modifiedAt ?? 0).getTime()
+  );
+}
+
 export function HomeScreen({
   draft,
   recentFiles,
@@ -62,24 +82,59 @@ export function HomeScreen({
   onOpenFromDevice,
   onRefreshStorage,
   onOpenRecentFile,
+  onRenameRecentFile,
+  onDeleteRecentFile,
 }: HomeScreenProps) {
   const [filter, setFilter] = useState<SourceFilter>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('recent');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const filteredRecentFiles = useMemo(() => (
-    recentFiles.filter((entry) => (filter === 'all' ? true : entry.source === filter))
-  ), [filter, recentFiles]);
+    recentFiles
+      .filter((entry) => (filter === 'all' ? true : entry.source === filter))
+      .sort((left, right) => compareRecentFiles(left, right, sortMode))
+  ), [filter, recentFiles, sortMode]);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`.${styles.fileActions}`)) {
+        setOpenMenuId(null);
+      }
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
 
   return (
     <div className={styles.page}>
       <header className={styles.hero}>
-        <div className={styles.brandRow}>
-          <div className={styles.brandMark}>X</div>
-          <div>
-            <p className={styles.kicker}>Excel Clone Workspace</p>
-            <h1 className={styles.title}>Spreadsheet storage with Express and Postgres.</h1>
-            <p className={styles.subtitle}>
-              Import `.xlsx` files when you need them, but keep workbook state in the backend so the editor stays fast and recoverable.
-            </p>
+        <div className={styles.heroPanel}>
+          <div className={styles.brandRow}>
+            <div className={styles.brandMark}>X</div>
+            <div>
+              <p className={styles.kicker}>Excel Clone Workspace</p>
+              <h1 className={styles.title}>Clean starts, fast recovery, and a home screen built like a workspace.</h1>
+              <p className={styles.subtitle}>
+                New spreadsheets now begin with one real blank sheet. Import `.xlsx` files when needed, then manage your saved sessions from a proper home view.
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.heroStats}>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>Recent sessions</span>
+              <strong className={styles.statValue}>{recentFiles.length}</strong>
+            </div>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>Storage</span>
+              <strong className={styles.statValue}>{storage.healthy ? 'Online' : 'Offline'}</strong>
+            </div>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>Blank template</span>
+              <strong className={styles.statValue}>1 sheet</strong>
+            </div>
           </div>
         </div>
 
@@ -130,40 +185,88 @@ export function HomeScreen({
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionEyebrow}>Recent files</p>
-              <h2 className={styles.sectionTitle}>Continue your work</h2>
+              <h2 className={styles.sectionTitle}>Open, rename, or clean up saved workbooks</h2>
             </div>
-            <div className={styles.filters}>
-              {(['all', 'device', 'backend'] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={classNames(styles.filterButton, filter === item && styles.filterButtonActive)}
-                  onClick={() => setFilter(item)}
+            <div className={styles.controls}>
+              <div className={styles.filters}>
+                {(['all', 'device', 'backend'] as const).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={classNames(styles.filterButton, filter === item && styles.filterButtonActive)}
+                    onClick={() => setFilter(item)}
+                  >
+                    {sourceLabel(item)}
+                  </button>
+                ))}
+              </div>
+              <label className={styles.sortControl}>
+                <span>Sort</span>
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as SortMode)}
                 >
-                  {sourceLabel(item)}
-                </button>
-              ))}
+                  <option value="recent">Most recent</option>
+                  <option value="name">Name</option>
+                  <option value="source">Source</option>
+                </select>
+              </label>
             </div>
           </div>
 
           <div className={styles.listCard}>
             {filteredRecentFiles.length > 0 ? filteredRecentFiles.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className={styles.fileRow}
-                onClick={() => onOpenRecentFile(entry)}
-              >
-                <div className={styles.fileInfo}>
-                  <strong>{entry.title}</strong>
-                  <span>{entry.currentFileName || entry.name}</span>
-                  <span>{reopenHint(entry)}</span>
+              <article key={entry.id} className={styles.fileRow}>
+                <button
+                  type="button"
+                  className={styles.fileMain}
+                  onClick={() => onOpenRecentFile(entry)}
+                >
+                  <div className={styles.fileInfo}>
+                    <strong>{entry.title}</strong>
+                    <span>{entry.currentFileName || entry.name}</span>
+                    <span>{reopenHint(entry)}</span>
+                  </div>
+                  <div className={styles.fileMeta}>
+                    <span className={styles.sourcePill}>{sourceLabel(entry.source as SourceFilter)}</span>
+                    <span>{formatDate(entry.lastOpenedAt || entry.modifiedAt)}</span>
+                  </div>
+                </button>
+                <div className={styles.fileActions}>
+                  <button
+                    type="button"
+                    className={styles.menuButton}
+                    aria-label={`Actions for ${entry.title}`}
+                    onClick={() => setOpenMenuId((current) => current === entry.id ? null : entry.id)}
+                  >
+                    •••
+                  </button>
+                  {openMenuId === entry.id ? (
+                    <div className={styles.menuCard}>
+                      <button
+                        type="button"
+                        className={styles.menuItem}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          onRenameRecentFile(entry);
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        className={classNames(styles.menuItem, styles.menuItemDanger)}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          onDeleteRecentFile(entry);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className={styles.fileMeta}>
-                  <span className={styles.sourcePill}>{sourceLabel(entry.source as SourceFilter)}</span>
-                  <span>{formatDate(entry.lastOpenedAt || entry.modifiedAt)}</span>
-                </div>
-              </button>
+              </article>
             )) : (
               <div className={styles.emptyState}>
                 <strong>No recent files yet.</strong>

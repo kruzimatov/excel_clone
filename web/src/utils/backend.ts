@@ -56,6 +56,10 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -87,4 +91,18 @@ export async function updateWorkbookRecord(id: string, payload: PersistWorkbookP
     body: JSON.stringify(payload),
   });
   return response.data;
+}
+
+export async function renameWorkbookRecord(id: string, title: string) {
+  const response = await fetchJson<ApiEnvelope<BackendWorkbookRecord>>(`/workbooks/${id}/title`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  });
+  return response.data;
+}
+
+export async function deleteWorkbookRecord(id: string) {
+  await fetchJson<void>(`/workbooks/${id}`, {
+    method: 'DELETE',
+  });
 }

@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --import tsx src/index.ts",
+    "dev:watch": "node --watch --import tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },

@@ -12,4 +12,4 @@ This repo is now split into two active workspaces:
 3. Run `npm install` at the repo root.
 4. Start both apps with `npm run dev`.
 
-The backend auto-creates the `workbooks` table on startup, and the web app uses `/api` to talk to it in development.
+The backend auto-creates the `workbooks` table on startup, and the web app uses `/api` to talk to it in development. The Docker Postgres service is published on host port `5433` to avoid conflicts with a local PostgreSQL already using `5432`.

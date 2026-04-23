@@ -6,9 +6,11 @@ import { createDefaultWorkbook, useWorkbook } from './store/useWorkbook';
 import type { FileDescriptor, RecentFileEntry } from './types';
 import {
   createWorkbookRecord,
+  deleteWorkbookRecord,
   getStorageHealth,
   getWorkbook,
   listWorkbooks,
+  renameWorkbookRecord,
   updateWorkbookRecord,
   type BackendWorkbookRecord,
   type PersistWorkbookPayload,
@@ -176,7 +178,9 @@ function App() {
       return;
     }
 
-    setStorageSaving(true);
+    if (mode === 'manual') {
+      setStorageSaving(true);
+    }
 
     try {
       const savedRecord = backendWorkbookId
@@ -195,7 +199,9 @@ function App() {
         window.alert(`Save failed: ${message}`);
       }
     } finally {
-      setStorageSaving(false);
+      if (mode === 'manual') {
+        setStorageSaving(false);
+      }
     }
   }, [
     backendWorkbookId,
@@ -320,6 +326,49 @@ function App() {
     })();
   }, [loadWorkbook, syncPersistedMetadata, syncRecentFiles]);
 
+  const handleRenameRecentFile = useCallback((entry: RecentFileEntry) => {
+    const nextTitle = window.prompt('Rename workbook', entry.title)?.trim();
+    if (!nextTitle || nextTitle === entry.title) return;
+
+    void (async () => {
+      setStorageLoading(true);
+      try {
+        const record = await renameWorkbookRecord(entry.id, nextTitle);
+        if (backendWorkbookId === entry.id) {
+          setTitle(record.title);
+        }
+        await syncRecentFiles();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Rename failed.';
+        window.alert(`Rename failed: ${message}`);
+      } finally {
+        setStorageLoading(false);
+      }
+    })();
+  }, [backendWorkbookId, syncRecentFiles]);
+
+  const handleDeleteRecentFile = useCallback((entry: RecentFileEntry) => {
+    if (!window.confirm(`Delete "${entry.title}" from saved workbooks?`)) {
+      return;
+    }
+
+    void (async () => {
+      setStorageLoading(true);
+      try {
+        await deleteWorkbookRecord(entry.id);
+        if (backendWorkbookId === entry.id) {
+          setBackendWorkbookId(null);
+        }
+        await syncRecentFiles();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Delete failed.';
+        window.alert(`Delete failed: ${message}`);
+      } finally {
+        setStorageLoading(false);
+      }
+    })();
+  }, [backendWorkbookId, syncRecentFiles]);
+
   const handleReloadFromBackend = useCallback(() => {
     if (!backendWorkbookId) return;
     void (async () => {
@@ -364,6 +413,8 @@ function App() {
           onOpenFromDevice={handleOpenFromDevice}
           onRefreshStorage={() => void syncRecentFiles()}
           onOpenRecentFile={handleOpenRecentFile}
+          onRenameRecentFile={handleRenameRecentFile}
+          onDeleteRecentFile={handleDeleteRecentFile}
         />
       ) : (
         <SpreadsheetScreen

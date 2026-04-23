@@ -21,12 +21,7 @@ function createSheet(name: string): Sheet {
 }
 
 export function createDefaultWorkbook(): Workbook {
-  const sheets = [
-    createSheet('ФУАД АКА'),
-    createSheet('ШАВКАТ ХОЖИ'),
-    createSheet('СУХРОБ ТОШ'),
-    createSheet('ЭЛМУРОД'),
-  ];
+  const sheets = [createSheet('Sheet 1')];
 
   return {
     sheets,

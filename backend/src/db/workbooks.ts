@@ -192,3 +192,47 @@ export async function updateWorkbook(id: string, input: WorkbookRecordInput) {
 
   return mapWorkbookRow(result.rows[0], true);
 }
+
+export async function renameWorkbook(id: string, title: string) {
+  const result = await pool.query<WorkbookRow>(
+    `
+      UPDATE workbooks
+      SET
+        title = $2,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING
+        id,
+        title,
+        current_file_name,
+        source,
+        source_name,
+        mime_type,
+        file_handle_id,
+        workbook,
+        created_at,
+        updated_at,
+        last_opened_at
+    `,
+    [id, title],
+  );
+
+  if (result.rowCount === 0) {
+    return null;
+  }
+
+  return mapWorkbookRow(result.rows[0], true);
+}
+
+export async function deleteWorkbook(id: string) {
+  const result = await pool.query<{ id: string }>(
+    `
+      DELETE FROM workbooks
+      WHERE id = $1
+      RETURNING id
+    `,
+    [id],
+  );
+
+  return result.rowCount !== 0;
+}
