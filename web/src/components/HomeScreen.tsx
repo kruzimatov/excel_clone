@@ -22,6 +22,7 @@ interface HomeScreenProps {
   language: AppLanguage;
   draft: DraftSummary | null;
   recentFiles: RecentFileEntry[];
+  loadingFile: boolean;
   storage: StorageSummary;
   onResumeDraft: () => void;
   onCreateBlank: () => void;
@@ -36,6 +37,7 @@ export function HomeScreen({
   language,
   draft,
   recentFiles,
+  loadingFile,
   storage,
   onResumeDraft,
   onCreateBlank,
@@ -80,10 +82,10 @@ export function HomeScreen({
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.primaryButton} onClick={onCreateBlank}>
+          <button type="button" className={styles.primaryButton} onClick={onCreateBlank} disabled={loadingFile}>
             {t(language, 'newSpreadsheet')}
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={onOpenFromDevice}>
+          <button type="button" className={styles.secondaryButton} onClick={onOpenFromDevice} disabled={loadingFile}>
             {t(language, 'openFile')}
           </button>
         </div>
@@ -194,6 +196,15 @@ export function HomeScreen({
           )}
         </section>
       </main>
+
+      {loadingFile ? (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingCard}>
+            <div className={styles.loadingSpinner} aria-hidden="true" />
+            <strong>{t(language, 'loadingFile')}</strong>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

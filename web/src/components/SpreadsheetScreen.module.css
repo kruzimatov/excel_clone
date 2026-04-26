@@ -11,6 +11,169 @@
   overflow: hidden;
 }
 
+.gridStage {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.gridStageDimmed {
+  overflow: hidden;
+}
+
+.gridStageDimmed::after {
+  animation: stageSheen 1.1s linear infinite;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.42) 45%, transparent 100%);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-100%);
+  z-index: 4;
+}
+
+.loadingBanner {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(32, 33, 36, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  position: relative;
+  z-index: 50;
+}
+
+.loadingText {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+}
+
+.loadingText strong {
+  color: #1b5e37;
+  font-size: 14px;
+}
+
+.loadingText span {
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.loadingTrack {
+  background: rgba(33, 115, 70, 0.12);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.loadingFill {
+  background: linear-gradient(90deg, #217346 0%, #2d8f59 100%);
+  height: 100%;
+  transition: width 120ms linear;
+}
+
+.sheetTransitionOverlay {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background:
+    linear-gradient(180deg, rgba(244, 248, 245, 0.5) 0%, rgba(255, 255, 255, 0.76) 100%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  z-index: 6;
+}
+
+.sheetTransitionOverlayLoading {
+  animation: fadeOverlayIn 180ms ease-out;
+}
+
+.sheetTransitionCard {
+  align-items: center;
+  animation: switchCardIn 240ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(27, 94, 55, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(27, 94, 55, 0.14);
+  display: inline-flex;
+  gap: 14px;
+  min-width: 210px;
+  padding: 16px 18px;
+}
+
+.sheetTransitionPulse {
+  animation: pulseOrb 880ms ease-in-out infinite;
+  background: radial-gradient(circle at 30% 30%, #57c08a 0%, #217346 68%, #1b5e37 100%);
+  border-radius: 999px;
+  box-shadow: 0 0 0 0 rgba(33, 115, 70, 0.2);
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.sheetTransitionText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sheetTransitionText strong {
+  color: #1b5e37;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sheetTransitionText span {
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.edgeMenuButton {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(33, 115, 70, 0.96) 0%, rgba(27, 94, 55, 0.96) 100%);
+  border: 0;
+  border-radius: 0 16px 16px 0;
+  box-shadow: 0 14px 34px rgba(27, 94, 55, 0.28);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  left: 0;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  z-index: 80;
+}
+
+.edgeMenuButtonOpen {
+  border-radius: 16px 0 0 16px;
+  left: auto;
+  min-height: 38px;
+  padding: 0 12px 0 10px;
+  right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+}
+
+.edgeMenuIcon {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.edgeMenuText {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
 .topBar {
   align-items: center;
   background: linear-gradient(135deg, #217346 0%, #1b5e37 100%);
@@ -35,6 +198,8 @@
 }
 
 .homeButton,
+.viewModeButton,
+.deleteButton,
 .saveButton,
 .rangeButton {
   align-items: center;
@@ -64,12 +229,24 @@
   color: #1b5e37;
 }
 
+.viewModeButton {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.deleteButton {
+  background: rgba(204, 0, 0, 0.16);
+  color: #ffffff;
+}
+
 .homeIcon {
   font-size: 18px;
   line-height: 1;
 }
 
 .homeButton:disabled,
+.viewModeButton:disabled,
+.deleteButton:disabled,
 .saveButton:disabled,
 .rangeButton:disabled {
   cursor: default;
@@ -178,10 +355,12 @@
 
 .rowActions {
   display: flex;
+  gap: 10px;
   pointer-events: auto;
   position: relative;
 }
 
+.columnFab,
 .rowFab {
   align-items: center;
   background: #217346;
@@ -199,17 +378,36 @@
   padding: 0 18px;
 }
 
+.columnFab {
+  background: #ffffff;
+  color: #1b5e37;
+  min-width: 70px;
+}
+
 .rowMenu {
   background: #ffffff;
   border: 1px solid rgba(32, 33, 36, 0.12);
   border-radius: 14px;
   bottom: calc(100% + 8px);
   box-shadow: 0 16px 34px rgba(32, 33, 36, 0.16);
-  min-width: 132px;
+  min-width: 176px;
   overflow: hidden;
   position: absolute;
   right: 0;
   z-index: 9;
+}
+
+.rowMenuInput {
+  border: 0;
+  border-bottom: 1px solid rgba(32, 33, 36, 0.1);
+  color: #202124;
+  display: block;
+  font: inherit;
+  font-weight: 700;
+  min-height: 42px;
+  outline: none;
+  padding: 0 14px;
+  width: 100%;
 }
 
 .rowMenuItem {
@@ -230,7 +428,70 @@
   background: #f7faff;
 }
 
+@keyframes switchCardIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeOverlayIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulseOrb {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes stageSheen {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (max-width: 640px) {
+  .sheetTransitionCard {
+    min-width: min(220px, calc(100vw - 36px));
+    padding: 14px 16px;
+  }
+
+  .edgeMenuButton {
+    min-height: 42px;
+    padding-right: 12px;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+  }
+
+  .edgeMenuButtonOpen {
+    min-height: 36px;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+  }
+
+  .edgeMenuText {
+    font-size: 12px;
+  }
+
   .topBar {
     align-items: flex-start;
     grid-template-columns: 1fr;
@@ -248,6 +509,8 @@
   }
 
   .homeButton,
+  .viewModeButton,
+  .deleteButton,
   .saveButton {
     width: 100%;
   }
@@ -267,6 +530,7 @@
   }
 
   .homeButton,
+  .viewModeButton,
   .saveButton {
     min-height: 34px;
     min-width: auto;
@@ -300,6 +564,7 @@
   }
 
   .homeButton,
+  .viewModeButton,
   .saveButton,
   .rangeButton {
     font-size: 13px;

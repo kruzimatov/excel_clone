@@ -1,11 +1,14 @@
 import { useCallback, useRef, useState } from 'react';
 
-import type { Cell, CellStyle, Selection, Sheet, Workbook } from '../types';
-import { cellKey, emptyCell } from '../utils/cells';
-import { evaluateAllFormulas, evaluateFormula } from '../utils/formulas';
+import type { Cell, CellStyle, Selection, Sheet, SheetRowChunk, Workbook } from '../types';
+import { cellKey, emptyCell, parseRef } from '../utils/cells';
+import { evaluateAllFormulas, evaluateFormula, formulaTouchesRange } from '../utils/formulas';
 import {
+  DEFAULT_VISIBLE_COLUMN_COUNT,
   DEFAULT_VISIBLE_ROW_COUNT,
+  ensureColumnCountForIndex,
   ensureRowCountForIndex,
+  getRequiredVisibleRowCount,
   normalizeWorkbook,
 } from '../utils/workbookLayout';
 
@@ -17,6 +20,7 @@ function createSheet(name: string): Sheet {
     colWidths: {},
     rowHeights: {},
     visibleRowCount: DEFAULT_VISIBLE_ROW_COUNT,
+    visibleColumnCount: DEFAULT_VISIBLE_COLUMN_COUNT,
   };
 }
 
@@ -38,9 +42,17 @@ export interface ClipboardData {
 }
 
 const MAX_UNDO = 30;
+const LARGE_WORKBOOK_CELL_THRESHOLD = 100_000;
+
+function isLargeCellsCollection(cells: Record<string, Cell>) {
+  return Object.keys(cells).length > LARGE_WORKBOOK_CELL_THRESHOLD;
+}
 
 export function useWorkbook() {
   const [workbook, setWorkbook] = useState<Workbook>(() => normalizeWorkbook(createDefaultWorkbook()));
+  const [sheetRowOrder, setSheetRowOrder] = useState<Record<string, boolean>>({});
+  const [loadVersion, setLoadVersion] = useState(0);
+  const [changeVersion, setChangeVersion] = useState(0);
   const [selection, setSelection] = useState<Selection>({
     start: { row: 0, col: 0 },
     end: { row: 0, col: 0 },
@@ -57,6 +69,7 @@ export function useWorkbook() {
   const redoStack = useRef<Record<string, Cell>[]>([]);
 
   const activeSheet = workbook.sheets.find((sheet) => sheet.id === workbook.activeSheetId)!;
+  const activeSheetReversed = sheetRowOrder[activeSheet.id] ?? true;
 
   const syncHistoryState = useCallback(() => {
     setHistoryState({
@@ -68,6 +81,13 @@ export function useWorkbook() {
   const pushUndo = useCallback(() => {
     const current = workbook.sheets.find((sheet) => sheet.id === workbook.activeSheetId);
     if (!current) return;
+
+    if (isLargeCellsCollection(current.cells)) {
+      undoStack.current = [];
+      redoStack.current = [];
+      syncHistoryState();
+      return;
+    }
 
     undoStack.current.push(JSON.parse(JSON.stringify(current.cells)));
     if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
@@ -102,9 +122,47 @@ export function useWorkbook() {
     return updated;
   }, []);
 
+  const recalculateAffectedFormulas = useCallback((
+    cells: Record<string, Cell>,
+    changedBounds: { minRow: number; maxRow: number; minCol: number; maxCol: number },
+  ): Record<string, Cell> => {
+    const formulaKeys = Object.entries(cells)
+      .filter(([, cell]) => cell.formula)
+      .map(([key]) => key);
+    if (formulaKeys.length === 0) return cells;
+
+    const targetFormulaKeys = Object.keys(cells).length > LARGE_WORKBOOK_CELL_THRESHOLD
+      ? formulaKeys.filter((key) => {
+          const formula = cells[key]?.formula;
+          return formula ? formulaTouchesRange(formula, changedBounds) : false;
+        })
+      : formulaKeys;
+
+    if (targetFormulaKeys.length === 0) {
+      return cells;
+    }
+
+    const formulaResults = evaluateAllFormulas(cells, targetFormulaKeys);
+    if (Object.keys(formulaResults).length === 0) return cells;
+
+    const updated = { ...cells };
+    for (const [key, value] of Object.entries(formulaResults)) {
+      if (updated[key]) {
+        updated[key] = { ...updated[key], value, display: undefined };
+      }
+    }
+
+    return updated;
+  }, []);
+
+  const markChanged = useCallback(() => {
+    setChangeVersion((current) => current + 1);
+  }, []);
+
   const setCellValue = useCallback((row: number, col: number, rawValue: string) => {
     const key = cellKey(row, col);
     pushUndo();
+    markChanged();
 
     setWorkbook((previousWorkbook) => {
       const newSheets = previousWorkbook.sheets.map((sheet) => {
@@ -135,17 +193,25 @@ export function useWorkbook() {
         const newCells = { ...sheet.cells, [key]: newCell };
         return {
           ...sheet,
-          cells: recalculate(newCells),
+          cells: recalculateAffectedFormulas(newCells, {
+            minRow: row,
+            maxRow: row,
+            minCol: col,
+            maxCol: col,
+          }),
           visibleRowCount: ensureRowCountForIndex(sheet.visibleRowCount, row),
+          visibleColumnCount: ensureColumnCountForIndex(sheet.visibleColumnCount, col),
         };
       });
 
       return { ...previousWorkbook, sheets: newSheets };
     });
-  }, [pushUndo, recalculate]);
+  }, [markChanged, pushUndo, recalculateAffectedFormulas]);
 
   const setCellStyle = useCallback((rows: number[], cols: number[], style: Partial<CellStyle>) => {
     pushUndo();
+    markChanged();
+    const shouldResetDisplay = Object.prototype.hasOwnProperty.call(style, 'currency');
 
     setWorkbook((previousWorkbook) => {
       const newSheets = previousWorkbook.sheets.map((sheet) => {
@@ -158,6 +224,7 @@ export function useWorkbook() {
             const existing = newCells[key] || emptyCell();
             newCells[key] = {
               ...existing,
+              display: shouldResetDisplay ? undefined : existing.display,
               style: { ...existing.style, ...style },
             };
           }
@@ -168,10 +235,11 @@ export function useWorkbook() {
 
       return { ...previousWorkbook, sheets: newSheets };
     });
-  }, [pushUndo]);
+  }, [markChanged, pushUndo]);
 
   const clearCells = useCallback((rows: number[], cols: number[]) => {
     pushUndo();
+    markChanged();
 
     setWorkbook((previousWorkbook) => {
       const newSheets = previousWorkbook.sheets.map((sheet) => {
@@ -184,12 +252,20 @@ export function useWorkbook() {
           }
         }
 
-        return { ...sheet, cells: recalculate(newCells) };
+        return {
+          ...sheet,
+          cells: recalculateAffectedFormulas(newCells, {
+            minRow: rows[0] ?? 0,
+            maxRow: rows[rows.length - 1] ?? 0,
+            minCol: cols[0] ?? 0,
+            maxCol: cols[cols.length - 1] ?? 0,
+          }),
+        };
       });
 
       return { ...previousWorkbook, sheets: newSheets };
     });
-  }, [pushUndo, recalculate]);
+  }, [markChanged, pushUndo, recalculateAffectedFormulas]);
 
   const undo = useCallback(() => {
     if (undoStack.current.length === 0) return;
@@ -254,6 +330,7 @@ export function useWorkbook() {
   const pasteToSelection = useCallback((pasteMode: 'all' | 'value' | 'style' = 'all') => {
     if (!clipboard) return;
     pushUndo();
+    markChanged();
 
     const targetRow = selection.start.row;
     const targetCol = selection.start.col;
@@ -306,10 +383,19 @@ export function useWorkbook() {
 
         return {
           ...sheet,
-          cells: recalculate(newCells),
+          cells: recalculateAffectedFormulas(newCells, {
+            minRow: targetRow,
+            maxRow: targetRow + clipboard.rows - 1,
+            minCol: targetCol,
+            maxCol: targetCol + clipboard.cols - 1,
+          }),
           visibleRowCount: ensureRowCountForIndex(
             sheet.visibleRowCount,
             targetRow + clipboard.rows - 1,
+          ),
+          visibleColumnCount: ensureColumnCountForIndex(
+            sheet.visibleColumnCount,
+            targetCol + clipboard.cols - 1,
           ),
         };
       });
@@ -320,7 +406,7 @@ export function useWorkbook() {
     if (clipboard.mode === 'cut') {
       setClipboard(null);
     }
-  }, [clipboard, pushUndo, recalculate, selection]);
+  }, [clipboard, markChanged, pushUndo, recalculateAffectedFormulas, selection]);
 
   const pickFormatPainter = useCallback(() => {
     const key = cellKey(selection.start.row, selection.start.col);
@@ -352,22 +438,87 @@ export function useWorkbook() {
   const loadWorkbook = useCallback((newWorkbook: Workbook) => {
     const recalculatedWorkbook = normalizeWorkbook({
       ...newWorkbook,
-      sheets: newWorkbook.sheets.map((sheet) => ({
-        ...sheet,
-        cells: recalculate(sheet.cells),
-      })),
+      sheets: newWorkbook.sheets.map((sheet) => {
+        const shouldSkipInitialRecalc = Object.keys(sheet.cells).length > LARGE_WORKBOOK_CELL_THRESHOLD;
+        return {
+          ...sheet,
+          cells: shouldSkipInitialRecalc ? sheet.cells : recalculate(sheet.cells),
+        };
+      }),
     });
 
     setWorkbook(recalculatedWorkbook);
+    setSheetRowOrder(() => Object.fromEntries(recalculatedWorkbook.sheets.map((sheet) => [sheet.id, true])));
     setSelection({ start: { row: 0, col: 0 }, end: { row: 0, col: 0 } });
     setEditingCell(null);
     setFormulaInput('');
     setClipboard(null);
     setFormatPainterStyle(null);
+    setLoadVersion((current) => current + 1);
+    setChangeVersion((current) => current + 1);
     undoStack.current = [];
     redoStack.current = [];
     syncHistoryState();
   }, [recalculate, syncHistoryState]);
+
+  const loadWorkbookShell = useCallback((newWorkbook: Workbook) => {
+    const normalizedWorkbook = normalizeWorkbook(newWorkbook);
+
+    setWorkbook(normalizedWorkbook);
+    setSheetRowOrder(() => Object.fromEntries(normalizedWorkbook.sheets.map((sheet) => [sheet.id, true])));
+    setSelection({ start: { row: 0, col: 0 }, end: { row: 0, col: 0 } });
+    setEditingCell(null);
+    setFormulaInput('');
+    setClipboard(null);
+    setFormatPainterStyle(null);
+    setLoadVersion((current) => current + 1);
+    setChangeVersion((current) => current + 1);
+    undoStack.current = [];
+    redoStack.current = [];
+    syncHistoryState();
+  }, [syncHistoryState]);
+
+  const mergeSheetRows = useCallback((sheetId: string, rows: SheetRowChunk[]) => {
+    if (rows.length === 0) {
+      return;
+    }
+
+    setWorkbook((previousWorkbook) => {
+      const nextSheets = [...previousWorkbook.sheets];
+      const sheetIndex = nextSheets.findIndex((sheet) => sheet.id === sheetId);
+      if (sheetIndex === -1) {
+        return previousWorkbook;
+      }
+
+      const targetSheet = nextSheets[sheetIndex];
+      const nextCells = targetSheet.cells;
+      let maxLoadedRowIndex = targetSheet.visibleRowCount - 1;
+      let maxLoadedColIndex = targetSheet.visibleColumnCount - 1;
+
+      for (const row of rows) {
+        maxLoadedRowIndex = Math.max(maxLoadedRowIndex, row.rowIndex);
+        for (const [cellRef, cell] of Object.entries(row.cells)) {
+          nextCells[cellRef] = cell;
+          const parsed = parseRef(cellRef);
+          if (parsed) {
+            maxLoadedColIndex = Math.max(maxLoadedColIndex, parsed.col);
+          }
+        }
+      }
+
+      nextSheets[sheetIndex] = {
+        ...targetSheet,
+        cells: nextCells,
+        visibleRowCount: ensureRowCountForIndex(targetSheet.visibleRowCount, maxLoadedRowIndex),
+        visibleColumnCount: ensureColumnCountForIndex(targetSheet.visibleColumnCount, maxLoadedColIndex),
+      };
+
+      return {
+        ...previousWorkbook,
+        sheets: nextSheets,
+      };
+    });
+  }, []);
 
   const switchSheet = useCallback((sheetId: string) => {
     setWorkbook((previousWorkbook) => ({ ...previousWorkbook, activeSheetId: sheetId }));
@@ -377,24 +528,33 @@ export function useWorkbook() {
   }, []);
 
   const addSheet = useCallback((name: string) => {
+    markChanged();
     const newSheet = createSheet(name);
+    setSheetRowOrder((current) => ({ ...current, [newSheet.id]: true }));
     setWorkbook((previousWorkbook) => ({
       ...previousWorkbook,
       sheets: [...previousWorkbook.sheets, newSheet],
       activeSheetId: newSheet.id,
     }));
-  }, []);
+  }, [markChanged]);
 
   const renameSheet = useCallback((sheetId: string, newName: string) => {
+    markChanged();
     setWorkbook((previousWorkbook) => ({
       ...previousWorkbook,
       sheets: previousWorkbook.sheets.map((sheet) => (
         sheet.id === sheetId ? { ...sheet, name: newName } : sheet
       )),
     }));
-  }, []);
+  }, [markChanged]);
 
   const deleteSheet = useCallback((sheetId: string) => {
+    markChanged();
+    setSheetRowOrder((current) => {
+      const next = { ...current };
+      delete next[sheetId];
+      return next;
+    });
     setWorkbook((previousWorkbook) => {
       if (previousWorkbook.sheets.length <= 1) return previousWorkbook;
       const newSheets = previousWorkbook.sheets.filter((sheet) => sheet.id !== sheetId);
@@ -407,7 +567,70 @@ export function useWorkbook() {
             : previousWorkbook.activeSheetId,
       };
     });
-  }, []);
+  }, [markChanged]);
+
+  const deleteRows = useCallback((startRow: number, endRow: number) => {
+    const minRow = Math.min(startRow, endRow);
+    const maxRow = Math.max(startRow, endRow);
+    const deleteCount = maxRow - minRow + 1;
+    if (deleteCount <= 0) return;
+
+    pushUndo();
+    markChanged();
+
+    setWorkbook((previousWorkbook) => {
+      const newSheets = previousWorkbook.sheets.map((sheet) => {
+        if (sheet.id !== previousWorkbook.activeSheetId) return sheet;
+
+        const shiftedCells: Record<string, Cell> = {};
+        for (const [ref, cell] of Object.entries(sheet.cells)) {
+          const parsed = parseRef(ref);
+          if (!parsed) continue;
+
+          if (parsed.row < minRow) {
+            shiftedCells[ref] = cell;
+            continue;
+          }
+
+          if (parsed.row > maxRow) {
+            shiftedCells[cellKey(parsed.row - deleteCount, parsed.col)] = cell;
+          }
+        }
+
+        const shiftedRowHeights: Record<number, number> = {};
+        for (const [key, height] of Object.entries(sheet.rowHeights)) {
+          const rowIndex = Number(key);
+          if (Number.isNaN(rowIndex)) continue;
+          if (rowIndex < minRow) {
+            shiftedRowHeights[rowIndex] = height;
+          } else if (rowIndex > maxRow) {
+            shiftedRowHeights[rowIndex - deleteCount] = height;
+          }
+        }
+
+        const recalculatedCells = recalculate(shiftedCells);
+        return {
+          ...sheet,
+          cells: recalculatedCells,
+          rowHeights: shiftedRowHeights,
+          visibleRowCount: Math.max(
+            getRequiredVisibleRowCount(recalculatedCells),
+            Math.max(DEFAULT_VISIBLE_ROW_COUNT, sheet.visibleRowCount - deleteCount),
+          ),
+        };
+      });
+
+      return { ...previousWorkbook, sheets: newSheets };
+    });
+
+    const nextRow = Math.max(0, minRow - (maxRow >= activeSheet.visibleRowCount - 1 ? 1 : 0));
+    setSelection({
+      start: { row: nextRow, col: 0 },
+      end: { row: nextRow, col: 0 },
+    });
+    setEditingCell(null);
+    setFormulaInput('');
+  }, [activeSheet.visibleRowCount, markChanged, pushUndo, recalculate]);
 
   const applyFormulaToSelection = useCallback((formulaType: string) => {
     const { start, end } = selection;
@@ -471,6 +694,7 @@ export function useWorkbook() {
   }, []);
 
   const expandActiveSheetRows = useCallback((amount: number) => {
+    markChanged();
     setWorkbook((previousWorkbook) => ({
       ...previousWorkbook,
       sheets: previousWorkbook.sheets.map((sheet) => (
@@ -479,11 +703,32 @@ export function useWorkbook() {
           : sheet
       )),
     }));
-  }, []);
+  }, [markChanged]);
+
+  const expandActiveSheetColumns = useCallback((amount: number) => {
+    markChanged();
+    setWorkbook((previousWorkbook) => ({
+      ...previousWorkbook,
+      sheets: previousWorkbook.sheets.map((sheet) => (
+        sheet.id === previousWorkbook.activeSheetId
+          ? { ...sheet, visibleColumnCount: sheet.visibleColumnCount + amount }
+          : sheet
+      )),
+    }));
+  }, [markChanged]);
+
+  const toggleActiveSheetRowOrder = useCallback(() => {
+    const activeId = workbook.activeSheetId;
+    setSheetRowOrder((current) => ({
+      ...current,
+      [activeId]: !(current[activeId] ?? true),
+    }));
+  }, [workbook.activeSheetId]);
 
   return {
     workbook,
     activeSheet,
+    activeSheetReversed,
     selection,
     setSelection,
     editingCell,
@@ -496,10 +741,13 @@ export function useWorkbook() {
     setCellStyle,
     clearCells,
     loadWorkbook,
+    loadWorkbookShell,
+    mergeSheetRows,
     switchSheet,
     addSheet,
     renameSheet,
     deleteSheet,
+    deleteRows,
     applyFormulaToSelection,
     getSelectedRange,
     undo,
@@ -507,6 +755,8 @@ export function useWorkbook() {
     canUndo: historyState.canUndo,
     canRedo: historyState.canRedo,
     clipboard,
+    loadVersion,
+    changeVersion,
     copySelection,
     pasteToSelection,
     formatPainterStyle,
@@ -518,6 +768,8 @@ export function useWorkbook() {
     applyRangeSelection,
     cancelRangeSelection,
     expandActiveSheetRows,
+    expandActiveSheetColumns,
+    toggleActiveSheetRowOrder,
   };
 }
 

@@ -19,11 +19,13 @@
 
 .containerFormula {
   background: #f6f8fb;
+  flex: 0 0 auto;
+  z-index: 55;
 }
 
 .formulaWrap {
   position: relative;
-  z-index: 60;
+  z-index: 65;
 }
 
 .toolbarHeader {

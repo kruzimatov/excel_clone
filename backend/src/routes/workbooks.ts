@@ -3,14 +3,18 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import {
+  beginChunkedWorkbookSave,
   createWorkbook,
   deleteWorkbook,
   getWorkbookById,
+  getWorkbookMetadataById,
+  getWorkbookSheetRowsChunkById,
   listWorkbookSummaries,
   renameWorkbook,
+  uploadWorkbookSheetChunk,
   updateWorkbook,
 } from '../db/workbooks.js';
-import { workbookRecordInputSchema } from '../types/workbook.js';
+import { workbookChunkedInitSchema, workbookChunkedSheetPayloadSchema, workbookRecordInputSchema } from '../types/workbook.js';
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -22,6 +26,13 @@ const workbookIdSchema = z.object({
 
 const renameWorkbookSchema = z.object({
   title: z.string().trim().min(1).max(255),
+});
+
+const sheetRowsQuerySchema = z.object({
+  direction: z.enum(['asc', 'desc']).default('asc'),
+  afterRow: z.coerce.number().int().min(-1).default(-1),
+  beforeRow: z.coerce.number().int().min(0).optional(),
+  limit: z.coerce.number().int().min(1).max(20000).default(5000),
 });
 
 export const workbookRouter = Router();
@@ -54,6 +65,56 @@ workbookRouter.put('/:id', async (request: Request, response: Response) => {
   const { id } = workbookIdSchema.parse(request.params);
   const payload = workbookRecordInputSchema.parse(request.body);
   const workbook = await updateWorkbook(id, payload);
+
+  if (!workbook) {
+    response.status(404).json({ error: 'Workbook not found.' });
+    return;
+  }
+
+  response.json({ data: workbook });
+});
+
+workbookRouter.get('/:id/meta', async (request: Request, response: Response) => {
+  const { id } = workbookIdSchema.parse(request.params);
+  const workbook = await getWorkbookMetadataById(id);
+
+  if (!workbook) {
+    response.status(404).json({ error: 'Workbook not found.' });
+    return;
+  }
+
+  response.json({ data: workbook });
+});
+
+workbookRouter.get('/:id/sheets/:sheetId/rows', async (request: Request, response: Response) => {
+  const { id, sheetId } = z.object({
+    id: z.string().uuid(),
+    sheetId: z.string().min(1),
+  }).parse(request.params);
+  const { afterRow, beforeRow, direction, limit } = sheetRowsQuerySchema.parse(request.query);
+  const cursorRow = direction === 'desc'
+    ? (beforeRow ?? 2147483647)
+    : afterRow;
+  const chunk = await getWorkbookSheetRowsChunkById(id, sheetId, cursorRow, limit, direction);
+
+  if (!chunk) {
+    response.status(404).json({ error: 'Workbook or sheet not found.' });
+    return;
+  }
+
+  response.json({ data: chunk });
+});
+
+workbookRouter.post('/chunked/init', async (request: Request, response: Response) => {
+  const payload = workbookChunkedInitSchema.parse(request.body);
+  const workbook = await beginChunkedWorkbookSave(payload);
+  response.status(payload.id ? 200 : 201).json({ data: workbook });
+});
+
+workbookRouter.post('/:id/chunked-sheet', async (request: Request, response: Response) => {
+  const { id } = workbookIdSchema.parse(request.params);
+  const payload = workbookChunkedSheetPayloadSchema.parse(request.body);
+  const workbook = await uploadWorkbookSheetChunk(id, payload);
 
   if (!workbook) {
     response.status(404).json({ error: 'Workbook not found.' });

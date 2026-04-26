@@ -26,11 +26,17 @@ export interface Sheet {
   colWidths: Record<number, number>;
   rowHeights: Record<number, number>;
   visibleRowCount: number;
+  visibleColumnCount: number;
 }
 
 export interface Workbook {
   sheets: Sheet[];
   activeSheetId: string;
+}
+
+export interface SheetRowChunk {
+  rowIndex: number;
+  cells: Record<string, Cell>;
 }
 
 export interface FileDescriptor {

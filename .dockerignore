@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vscode
+.codex
+node_modules
+backend/node_modules
+web/node_modules
+backend/dist
+web/dist
+backend/.env
+web/.env
+coverage
+*.log
+*.sqlite
+*.db

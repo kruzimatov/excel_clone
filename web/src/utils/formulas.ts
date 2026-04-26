@@ -2,6 +2,15 @@ import { HyperFormula } from 'hyperformula';
 
 import type { Cell } from '../types';
 
+interface CellBounds {
+  minRow: number;
+  maxRow: number;
+  minCol: number;
+  maxCol: number;
+}
+
+const MAX_HYPERFORMULA_GRID_CELLS = 200_000;
+
 const FUNCTION_ALIASES: Record<string, string> = {
   СУММ: 'SUM',
   СРЕДНЕЕ: 'AVERAGE',
@@ -66,6 +75,11 @@ function buildEngine(allCells: Record<string, Cell>): { hf: HyperFormula; sheetI
     });
   }
 
+  const estimatedGridCells = (maxRow + 2) * (maxCol + 2);
+  if (estimatedGridCells > MAX_HYPERFORMULA_GRID_CELLS) {
+    return null;
+  }
+
   const data: (string | number | null)[][] = [];
   for (let row = 0; row <= maxRow + 1; row += 1) {
     const rowData: (string | number | null)[] = [];
@@ -90,8 +104,15 @@ function buildEngine(allCells: Record<string, Cell>): { hf: HyperFormula; sheetI
   }
 }
 
-export function evaluateAllFormulas(cells: Record<string, Cell>): Record<string, number | string> {
-  const formulaEntries = Object.entries(cells).filter(([, cell]) => cell.formula);
+export function evaluateAllFormulas(
+  cells: Record<string, Cell>,
+  formulaKeys?: string[],
+): Record<string, number | string> {
+  const formulaEntries = formulaKeys
+    ? formulaKeys
+        .map((key) => [key, cells[key]] as const)
+        .filter((entry): entry is [string, Cell] => !!entry[1]?.formula)
+    : Object.entries(cells).filter(([, cell]) => cell.formula);
   if (formulaEntries.length === 0) return {};
 
   const engine = buildEngine(cells);
@@ -178,6 +199,44 @@ export function evaluateFormula(
   }
 
   return simpleFallback(normalized, getCell);
+}
+
+export function formulaTouchesRange(formula: string, bounds: CellBounds): boolean {
+  const normalized = normalizeFormula(formula).toUpperCase();
+  const matches = normalized.matchAll(/([A-Z]+\d+)(?::([A-Z]+\d+))?/g);
+
+  for (const match of matches) {
+    const start = parseRef(match[1]);
+    if (!start) continue;
+
+    if (!match[2]) {
+      if (
+        start.row >= bounds.minRow
+        && start.row <= bounds.maxRow
+        && start.col >= bounds.minCol
+        && start.col <= bounds.maxCol
+      ) {
+        return true;
+      }
+      continue;
+    }
+
+    const end = parseRef(match[2]);
+    if (!end) continue;
+
+    const minRow = Math.min(start.row, end.row);
+    const maxRow = Math.max(start.row, end.row);
+    const minCol = Math.min(start.col, end.col);
+    const maxCol = Math.max(start.col, end.col);
+
+    const rowOverlap = minRow <= bounds.maxRow && maxRow >= bounds.minRow;
+    const colOverlap = minCol <= bounds.maxCol && maxCol >= bounds.minCol;
+    if (rowOverlap && colOverlap) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function letterToCol(letter: string): number {

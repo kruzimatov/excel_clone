@@ -241,9 +241,10 @@ export function Toolbar({
     const margin = 12;
     const availableBelow = viewportHeight - rect.bottom - margin;
     const placement: MenuPlacement = availableBelow >= dimensions.height ? 'bottom' : 'top';
+    const formulaRowOffset = mode === 'ribbon' ? 58 : 0;
     const nextTop =
       placement === 'bottom'
-        ? Math.min(viewportHeight - dimensions.height - margin, rect.bottom + 8)
+        ? Math.min(viewportHeight - dimensions.height - margin, rect.bottom + 8 + formulaRowOffset)
         : Math.max(margin, rect.top - dimensions.height - 8);
     const desiredLeft = rect.left;
     const nextLeft = Math.max(

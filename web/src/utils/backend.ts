@@ -1,4 +1,4 @@
-import type { FileDescriptor, Workbook } from '../types';
+import type { FileDescriptor, SheetRowChunk, Workbook } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
 
@@ -21,6 +21,43 @@ export interface BackendWorkbookSummary {
 
 export interface BackendWorkbookRecord extends BackendWorkbookSummary {
   workbook: Workbook;
+}
+
+export interface BackendWorkbookMetadata extends BackendWorkbookSummary {
+  workbook: Workbook;
+  sheetStats: Array<{
+    id: string;
+    name: string;
+    storedRowCount: number;
+  }>;
+}
+
+export interface BackendWorkbookSheetRowsChunk {
+  sheetId: string;
+  sheetName: string;
+  rows: SheetRowChunk[];
+  nextAfterRow: number;
+  nextBeforeRow?: number;
+  totalStoredRows: number;
+  done: boolean;
+}
+
+interface ChunkedSheetRowPayload {
+  rowIndex: number;
+  cells: Record<string, Workbook['sheets'][number]['cells'][string]>;
+}
+
+interface ChunkedSheetUploadPayload {
+  position: number;
+  sheet: {
+    id: string;
+    name: string;
+    colWidths: Record<number, number>;
+    rowHeights: Record<number, number>;
+    visibleRowCount: number;
+    visibleColumnCount: number;
+  };
+  rows: ChunkedSheetRowPayload[];
 }
 
 interface ApiEnvelope<T> {
@@ -77,6 +114,38 @@ export async function getWorkbook(id: string) {
   return response.data;
 }
 
+export async function getWorkbookMetadata(id: string) {
+  const response = await fetchJson<ApiEnvelope<BackendWorkbookMetadata>>(`/workbooks/${id}/meta`);
+  return response.data;
+}
+
+export async function getWorkbookSheetRowsChunk(
+  id: string,
+  sheetId: string,
+  options: {
+    afterRow?: number;
+    beforeRow?: number;
+    direction?: 'asc' | 'desc';
+    limit: number;
+  },
+) {
+  const query = new URLSearchParams({
+    limit: String(options.limit),
+    direction: options.direction ?? 'asc',
+  });
+  if (options.afterRow !== undefined) {
+    query.set('afterRow', String(options.afterRow));
+  }
+  if (options.beforeRow !== undefined) {
+    query.set('beforeRow', String(options.beforeRow));
+  }
+
+  const response = await fetchJson<ApiEnvelope<BackendWorkbookSheetRowsChunk>>(
+    `/workbooks/${id}/sheets/${encodeURIComponent(sheetId)}/rows?${query.toString()}`,
+  );
+  return response.data;
+}
+
 export async function createWorkbookRecord(payload: PersistWorkbookPayload) {
   const response = await fetchJson<ApiEnvelope<BackendWorkbookRecord>>('/workbooks', {
     method: 'POST',
@@ -105,4 +174,29 @@ export async function deleteWorkbookRecord(id: string) {
   await fetchJson<void>(`/workbooks/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function beginChunkedWorkbookRecordSave(input: {
+  id?: string | null;
+  title: string;
+  currentFileName: string | null;
+  activeFile: FileDescriptor | null;
+  activeSheetId: string;
+}) {
+  const response = await fetchJson<ApiEnvelope<BackendWorkbookSummary>>('/workbooks/chunked/init', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
+export async function uploadChunkedWorkbookSheet(
+  workbookId: string,
+  payload: ChunkedSheetUploadPayload,
+) {
+  const response = await fetchJson<ApiEnvelope<BackendWorkbookSummary>>(`/workbooks/${workbookId}/chunked-sheet`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return response.data;
 }

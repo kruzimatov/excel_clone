@@ -1,12 +1,50 @@
 import type { Cell, CellValue, Currency } from '../types';
 
+const columnLetterCache = new Map<number, string>();
+const numberFormatter = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+const currencyFormatters: Record<Exclude<Currency, ''>, Intl.NumberFormat> = {
+  USD: new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }),
+  RUB: new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }),
+  UZS: new Intl.NumberFormat('uz-UZ', {
+    style: 'currency',
+    currency: 'UZS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }),
+  EUR: new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }),
+};
+
 export function colToLetter(col: number): string {
+  const cached = columnLetterCache.get(col);
+  if (cached) {
+    return cached;
+  }
+
   let result = '';
   let current = col;
   while (current >= 0) {
     result = String.fromCharCode(65 + (current % 26)) + result;
     current = Math.floor(current / 26) - 1;
   }
+  columnLetterCache.set(col, result);
   return result;
 }
 
@@ -31,34 +69,15 @@ export function parseRef(ref: string): { row: number; col: number } | null {
 export function formatCurrency(value: number, currency: Currency): string {
   if (!currency) return formatNumber(value);
 
-  const options: Record<Currency, { locale: string; currency: string } | null> = {
-    USD: { locale: 'en-US', currency: 'USD' },
-    RUB: { locale: 'ru-RU', currency: 'RUB' },
-    UZS: { locale: 'uz-UZ', currency: 'UZS' },
-    EUR: { locale: 'de-DE', currency: 'EUR' },
-    '': null,
-  };
-
-  const option = options[currency];
-  if (!option) return formatNumber(value);
-
   try {
-    return new Intl.NumberFormat(option.locale, {
-      style: 'currency',
-      currency: option.currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(value);
+    return currencyFormatters[currency].format(value);
   } catch {
     return formatNumber(value);
   }
 }
 
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return numberFormatter.format(value);
 }
 
 export function getDisplayValue(cell: Cell | undefined): string {

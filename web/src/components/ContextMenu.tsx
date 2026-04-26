@@ -25,6 +25,8 @@ interface ContextMenuProps {
   onPaste: (mode: 'all' | 'value' | 'style') => void;
   onFormatPainterPick: () => void;
   onFormatPainterApply: () => void;
+  deleteRowsLabel?: string | null;
+  onDeleteRows?: () => void;
   onClear: () => void;
 }
 
@@ -51,6 +53,8 @@ export function ContextMenu({
   onPaste,
   onFormatPainterPick,
   onFormatPainterApply,
+  deleteRowsLabel,
+  onDeleteRows,
   onClear,
 }: ContextMenuProps) {
   if (!visible) return null;
@@ -150,6 +154,18 @@ export function ContextMenu({
           </div>
 
           <div className={styles.divider} />
+
+          {onDeleteRows && deleteRowsLabel ? (
+            <>
+              <MenuItem
+                icon="🗑️"
+                label={deleteRowsLabel}
+                onPress={() => { onDeleteRows(); onClose(); }}
+                destructive
+              />
+              <div className={styles.divider} />
+            </>
+          ) : null}
 
           <MenuItem
             icon="🗑️"

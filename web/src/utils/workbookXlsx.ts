@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 
 import type { Cell, Currency, Workbook } from '../types';
-import { normalizeWorkbook } from './workbookLayout';
+import { DEFAULT_VISIBLE_COLUMN_COUNT, normalizeWorkbook } from './workbookLayout';
 
 interface XlsxCellStyle {
   font?: {
@@ -62,47 +62,45 @@ function getCurrencyFormat(currency: Currency) {
 
 function sheetjsToCells(worksheet: XLSX.WorkSheet): Record<string, Cell> {
   const cells: Record<string, Cell> = {};
-  if (!worksheet || !worksheet['!ref']) return cells;
+  if (!worksheet) return cells;
 
-  const range = XLSX.utils.decode_range(worksheet['!ref']);
+  for (const [address, rawCell] of Object.entries(worksheet)) {
+    if (address.startsWith('!')) continue;
+    if (!/^[A-Z]+\d+$/i.test(address)) continue;
 
-  for (let row = range.s.r; row <= range.e.r; row += 1) {
-    for (let col = range.s.c; col <= range.e.c; col += 1) {
-      const address = XLSX.utils.encode_cell({ r: row, c: col });
-      const workbookCell = worksheet[address] as (XLSX.CellObject & { s?: XlsxCellStyle }) | undefined;
-      if (!workbookCell) continue;
+    const workbookCell = rawCell as (XLSX.CellObject & { s?: XlsxCellStyle }) | undefined;
+    if (!workbookCell) continue;
 
-      const cell: Cell = {
-        value: null,
-        display: typeof workbookCell.w === 'string' ? workbookCell.w : undefined,
-        style: {},
-      };
+    const cell: Cell = {
+      value: null,
+      display: typeof workbookCell.w === 'string' ? workbookCell.w : undefined,
+      style: {},
+    };
 
-      if (workbookCell.f) {
-        cell.formula = `=${workbookCell.f}`;
-      }
+    if (workbookCell.f) {
+      cell.formula = `=${workbookCell.f}`;
+    }
 
-      if (workbookCell.v !== undefined && workbookCell.v !== null) {
-        cell.value = typeof workbookCell.v === 'boolean'
-          ? (workbookCell.v ? 1 : 0)
-          : workbookCell.v as string | number;
-      }
+    if (workbookCell.v !== undefined && workbookCell.v !== null) {
+      cell.value = typeof workbookCell.v === 'boolean'
+        ? (workbookCell.v ? 1 : 0)
+        : workbookCell.v as string | number;
+    }
 
-      const workbookStyle = workbookCell.s;
-      if (workbookStyle?.font?.bold) cell.style.bold = true;
-      if (workbookStyle?.font?.italic) cell.style.italic = true;
+    const workbookStyle = workbookCell.s;
+    if (workbookStyle?.font?.bold) cell.style.bold = true;
+    if (workbookStyle?.font?.italic) cell.style.italic = true;
 
-      const textColor = normalizeColor(workbookStyle?.font?.color?.rgb);
-      const bgColor = normalizeColor(workbookStyle?.fill?.fgColor?.rgb);
-      if (textColor) cell.style.textColor = textColor;
-      if (bgColor) cell.style.bgColor = bgColor;
+    const textColor = normalizeColor(workbookStyle?.font?.color?.rgb);
+    const bgColor = normalizeColor(workbookStyle?.fill?.fgColor?.rgb);
+    if (textColor) cell.style.textColor = textColor;
+    if (bgColor) cell.style.bgColor = bgColor;
 
-      const currency = detectCurrency(String(workbookCell.z ?? workbookStyle?.numFmt ?? ''));
-      if (currency) cell.style.currency = currency;
+    const currency = detectCurrency(String(workbookCell.z ?? workbookStyle?.numFmt ?? ''));
+    if (currency) cell.style.currency = currency;
 
-      if (cell.value !== null || cell.formula) {
-        cells[address] = cell;
-      }
+    if (cell.value !== null || cell.formula) {
+      cells[address] = cell;
     }
   }
 
@@ -188,6 +186,7 @@ export function importWorkbookFromArrayBuffer(arrayBuffer: ArrayBuffer): Workboo
     colWidths: {},
     rowHeights: {},
     visibleRowCount: 50,
+    visibleColumnCount: DEFAULT_VISIBLE_COLUMN_COUNT,
   }));
 
   if (sheets.length === 0) {

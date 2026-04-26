@@ -14,7 +14,7 @@ async function startServer() {
   app.use(cors({
     origin: env.CORS_ORIGIN,
   }));
-  app.use(express.json({ limit: '8mb' }));
+  app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
 
   app.get('/api/health', async (_request: Request, response: Response) => {
     await pool.query('SELECT 1');
@@ -29,6 +29,18 @@ async function startServer() {
 
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
     console.error(error);
+
+    if (
+      typeof error === 'object'
+      && error !== null
+      && 'type' in error
+      && error.type === 'entity.too.large'
+    ) {
+      response.status(413).json({
+        error: `Workbook payload is larger than the current ${env.REQUEST_BODY_LIMIT} request limit.`,
+      });
+      return;
+    }
 
     if (error instanceof ZodError) {
       response.status(400).json({

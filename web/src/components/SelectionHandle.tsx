@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 
 import { classNames } from '../utils/classNames';
 
@@ -25,7 +25,7 @@ export function SelectionHandle({
     }
   }, []);
 
-  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handlePointerDown(event: ReactPointerEvent<HTMLSpanElement>) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -58,17 +58,26 @@ export function SelectionHandle({
     window.addEventListener('pointercancel', handleUp);
   }
 
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLSpanElement>) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   return (
-    <button
-      type="button"
+    <span
+      role="button"
+      tabIndex={0}
       aria-label={`Selection handle ${position}`}
       className={classNames(
         styles.touchArea,
         position === 'bottom-right' ? styles.bottomRight : styles.topLeft,
       )}
       onPointerDown={handlePointerDown}
+      onKeyDown={handleKeyDown}
     >
       <span className={styles.dot} />
-    </button>
+    </span>
   );
 }

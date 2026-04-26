@@ -7,10 +7,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  REQUEST_BODY_LIMIT: z.string().default('256mb'),
 });
 
 export const env = envSchema.parse({
   PORT: process.env.PORT ?? '4000',
   DATABASE_URL: process.env.DATABASE_URL,
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  REQUEST_BODY_LIMIT: process.env.REQUEST_BODY_LIMIT ?? '256mb',
 });
