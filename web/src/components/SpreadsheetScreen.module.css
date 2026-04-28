@@ -199,6 +199,7 @@
 
 .homeButton,
 .viewModeButton,
+.fullscreenButton,
 .deleteButton,
 .saveButton,
 .rangeButton {
@@ -234,6 +235,14 @@
   color: #ffffff;
 }
 
+.fullscreenButton {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  min-width: 42px;
+  padding: 0;
+  width: 42px;
+}
+
 .deleteButton {
   background: rgba(204, 0, 0, 0.16);
   color: #ffffff;
@@ -246,6 +255,7 @@
 
 .homeButton:disabled,
 .viewModeButton:disabled,
+.fullscreenButton:disabled,
 .deleteButton:disabled,
 .saveButton:disabled,
 .rangeButton:disabled {

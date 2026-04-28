@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { ZodError } from 'zod';
 
 import { env } from './config/env.js';
+import { basicAuthMiddleware } from './auth/basicAuth.js';
 import { initDatabase, pool } from './db/pool.js';
 import { workbookRouter } from './routes/workbooks.js';
 
@@ -11,21 +12,22 @@ async function startServer() {
 
   const app = express();
 
-  app.use(cors({
-    origin: env.CORS_ORIGIN,
-  }));
-  app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
+	  app.use(cors({
+	    origin: env.CORS_ORIGIN,
+	  }));
+	  app.use(express.json({ limit: env.REQUEST_BODY_LIMIT }));
+	  app.use(basicAuthMiddleware());
 
-  app.get('/api/health', async (_request: Request, response: Response) => {
-    await pool.query('SELECT 1');
-    response.json({
-      status: 'ok',
-      database: 'ok',
-      message: 'Express API connected to PostgreSQL.',
-    });
-  });
+	  app.get('/api/health', async (_request: Request, response: Response) => {
+	    await pool.query('SELECT 1');
+	    response.json({
+	      status: 'ok',
+	      database: 'ok',
+	      message: 'Express API connected to PostgreSQL.',
+	    });
+	  });
 
-  app.use('/api/workbooks', workbookRouter);
+	  app.use('/api/workbooks', workbookRouter);
 
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
     console.error(error);

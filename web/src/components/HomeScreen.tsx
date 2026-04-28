@@ -27,6 +27,7 @@ interface HomeScreenProps {
   onResumeDraft: () => void;
   onCreateBlank: () => void;
   onOpenFromDevice: () => void;
+  onLogout?: () => void;
   onOpenRecentFile: (entry: RecentFileEntry) => void;
   onDownloadRecentFile: (entry: RecentFileEntry) => void;
   onRenameRecentFile: (entry: RecentFileEntry) => void;
@@ -42,6 +43,7 @@ export function HomeScreen({
   onResumeDraft,
   onCreateBlank,
   onOpenFromDevice,
+  onLogout,
   onOpenRecentFile,
   onDownloadRecentFile,
   onRenameRecentFile,
@@ -81,15 +83,20 @@ export function HomeScreen({
           </p>
         </div>
 
-        <div className={styles.actions}>
-          <button type="button" className={styles.primaryButton} onClick={onCreateBlank} disabled={loadingFile}>
-            {t(language, 'newSpreadsheet')}
-          </button>
-          <button type="button" className={styles.secondaryButton} onClick={onOpenFromDevice} disabled={loadingFile}>
-            {t(language, 'openFile')}
-          </button>
-        </div>
-      </header>
+	        <div className={styles.actions}>
+	          <button type="button" className={styles.primaryButton} onClick={onCreateBlank} disabled={loadingFile}>
+	            {t(language, 'newSpreadsheet')}
+	          </button>
+	          <button type="button" className={styles.secondaryButton} onClick={onOpenFromDevice} disabled={loadingFile}>
+	            {t(language, 'openFile')}
+	          </button>
+	          {onLogout ? (
+	            <button type="button" className={styles.secondaryButton} onClick={onLogout} disabled={loadingFile}>
+	              Log out
+	            </button>
+	          ) : null}
+	        </div>
+	      </header>
 
       {!storage.healthy ? (
         <div className={styles.notice}>

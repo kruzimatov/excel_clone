@@ -29,3 +29,25 @@ That starts:
 - Postgres on `localhost:5433`
 
 The web container proxies `/api` requests to the backend container over the Docker network, so the browser still talks to the app through the familiar local ports.
+
+## Save integrations
+
+Manual `Save` stores the workbook in Postgres. If these environment variables are set, the backend also syncs the saved workbook to Google Apps Script and sends a CSV export to Telegram:
+
+```bash
+APPS_SCRIPT_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+APPS_SCRIPT_SECRET=optional-shared-secret
+TELEGRAM_BOT_TOKEN=123456:bot-token
+TELEGRAM_CHAT_ID=123456789
+```
+
+Autosave stays Postgres-only so Telegram does not get spammed.
+
+Use `docs/apps-script-webhook.js` as the Apps Script web app code. In Apps Script, set the script property
+`WORKBOOK_SYNC_SECRET` to the same value as `APPS_SCRIPT_SECRET`. To sync multiple workbooks into a single Google
+Sheet (new tabs instead of new files), set `WORKBOOK_TARGET_SPREADSHEET_ID` to an existing spreadsheet ID (or let
+the script create one once and then reuse it). Deploy it as a web app and use the `/exec` URL as
+`APPS_SCRIPT_WEBHOOK_URL`.
+
+When `AUTH_ENABLED=true`, the web app will prompt for a username/password and store it in `localStorage` so manual
+Save clicks can reach the backend.

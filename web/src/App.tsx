@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import { HomeScreen } from './components/HomeScreen';
+import { LoginScreen } from './components/LoginScreen';
 import { SpreadsheetScreen } from './components/SpreadsheetScreen';
 import { createDefaultWorkbook, useWorkbook } from './store/useWorkbook';
 import type { FileDescriptor, RecentFileEntry, SheetRowChunk } from './types';
@@ -14,11 +15,15 @@ import {
   getWorkbookSheetRowsChunk,
   listWorkbooks,
   renameWorkbookRecord,
+  syncWorkbookToAppsScript,
   uploadChunkedWorkbookSheet,
   updateWorkbookRecord,
+  ApiError,
   type BackendWorkbookRecord,
+  type ExternalSyncResult,
   type PersistWorkbookPayload,
 } from './utils/backend';
+import { clearBasicAuthCredentials, hasBasicAuthCredentials, setBasicAuthCredentials } from './utils/auth';
 import {
   baseNameNoExt,
   buildWorkbookBlob,
@@ -45,6 +50,10 @@ function yieldToBrowser() {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, 0);
   });
+}
+
+function isUnauthorized(error: unknown) {
+  return error instanceof ApiError && error.status === 401;
 }
 
 function resolveWorkbookTitle(rawTitle: string | null | undefined, currentFileName: string | null) {
@@ -79,6 +88,41 @@ function buildWorkbookFileName(currentFileName: string | null, title: string) {
     || sanitizeFileName(`${title || 'Workbook'}.xlsx`)
     || `Workbook-${Date.now()}.xlsx`;
   return suggested.endsWith('.xlsx') ? suggested : `${suggested}.xlsx`;
+}
+
+function buildExternalSyncMessage(integrations: ExternalSyncResult | null | undefined) {
+  if (!integrations) {
+    return null;
+  }
+
+  const services = [
+    ['Google Sheets', integrations.appsScript],
+    ['Telegram', integrations.telegram],
+  ] as const;
+  const errors = services
+    .filter(([, result]) => result?.error)
+    .map(([name, result]) => `${name}: ${result?.error}`);
+
+  if (errors.length > 0) {
+    return `Saved to DB. External sync issue: ${errors.join('; ')}`;
+  }
+
+  const synced = services
+    .filter(([, result]) => result && !result.skipped)
+    .map(([name]) => name);
+
+  if (synced.length > 0) {
+    return `Saved to DB and synced to ${synced.join(', ')}.`;
+  }
+
+  return null;
+}
+
+function buildAppsScriptSyncMessage(result: { skipped: boolean; reason?: string; error?: string; spreadsheetUrl?: string }) {
+  if (!result) return null;
+  if (result.error) return `Saved to DB. Google Sheets sync issue: ${result.error}`;
+  if (result.skipped) return result.reason ? `Saved to DB. Google Sheets sync skipped: ${result.reason}` : 'Saved to DB.';
+  return result.spreadsheetUrl ? `Saved to DB and synced to Google Sheets: ${result.spreadsheetUrl}` : 'Saved to DB and synced to Google Sheets.';
 }
 
 function buildPersistMarker(input: {
@@ -173,6 +217,11 @@ function App() {
   const backendSheetStatsRef = useRef<Map<string, BackendSheetStat>>(new Map());
   const loadedBackendSheetIdsRef = useRef<Set<string>>(new Set());
   const loadingBackendSheetIdsRef = useRef<Set<string>>(new Set());
+  const syncRecentFilesInFlightRef = useRef(false);
+  const syncRecentFilesLastAtRef = useRef(0);
+  const initialSyncRanRef = useRef(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const language: AppLanguage = 'ru';
   const [screen, setScreen] = useState<Screen>('home');
   const [title, setTitle] = useState(() => buildDefaultWorkbookTitle(language));
@@ -231,6 +280,16 @@ function App() {
   }, []);
 
   const syncRecentFiles = useCallback(async () => {
+    if (syncRecentFilesInFlightRef.current) {
+      return;
+    }
+    const now = Date.now();
+    if (now - syncRecentFilesLastAtRef.current < 1000) {
+      return;
+    }
+    syncRecentFilesInFlightRef.current = true;
+    syncRecentFilesLastAtRef.current = now;
+
     const [health, workbooks] = await Promise.all([
       getStorageHealth(),
       listWorkbooks(20),
@@ -243,6 +302,7 @@ function App() {
     setRecentFiles(entries);
     setDraft(buildDraftSummary(entries[0] ?? null));
     setStorageReady(true);
+    syncRecentFilesInFlightRef.current = false;
   }, []);
 
   const syncPersistedMetadata = useCallback((record: BackendWorkbookRecord) => {
@@ -425,10 +485,23 @@ function App() {
   }, [applySession, resetProgressiveBackendLoadState, workbookStore]);
 
   useEffect(() => {
+    if (initialSyncRanRef.current) {
+      return;
+    }
+    initialSyncRanRef.current = true;
+
     void (async () => {
       try {
         await syncRecentFiles();
       } catch (error) {
+		        if (isUnauthorized(error)) {
+		          setAuthRequired(true);
+		          setAuthError(null);
+		          setStorageHealthy(false);
+		          setStorageMessage('Sign in required.');
+		          setStorageReady(true);
+		          return;
+		        }
         const message = error instanceof Error ? error.message : 'Backend connection failed.';
         setStorageHealthy(false);
         setStorageMessage(message);
@@ -502,29 +575,45 @@ function App() {
           }
         }
 
+        const appsScriptResult = await syncWorkbookToAppsScript(savedSummary.id);
+        const externalSyncMessage = buildAppsScriptSyncMessage(appsScriptResult);
         setStorageHealthy(true);
-        setStorageMessage('Express API connected to PostgreSQL.');
         syncPersistedSummary(savedSummary);
         lastPersistedSnapshotRef.current = persistMarker;
         await syncRecentFiles();
+        setStorageMessage(externalSyncMessage ?? 'Express API connected to PostgreSQL.');
       } else {
-        const savedRecord = backendWorkbookId
+        const saveResult = backendWorkbookId
           ? await updateWorkbookRecord(backendWorkbookId, persistPayload)
           : await createWorkbookRecord(persistPayload);
+        let externalSyncMessage = buildExternalSyncMessage(saveResult.integrations);
+        if (mode === 'manual') {
+          const appsScriptResult = await syncWorkbookToAppsScript(saveResult.record.id);
+          externalSyncMessage = buildAppsScriptSyncMessage(appsScriptResult) ?? externalSyncMessage;
+        }
 
         setStorageHealthy(true);
-        setStorageMessage('Express API connected to PostgreSQL.');
-        syncPersistedMetadata(savedRecord);
+        syncPersistedMetadata(saveResult.record);
         lastPersistedSnapshotRef.current = persistMarker;
         await syncRecentFiles();
+        setStorageMessage(externalSyncMessage ?? 'Express API connected to PostgreSQL.');
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Backend save failed.';
-      setStorageHealthy(false);
-      setStorageMessage(message);
-      if (mode === 'manual') {
-        window.alert(t(language, 'saveFailed', { message }));
-      }
+	    } catch (error) {
+	      if (isUnauthorized(error)) {
+	        clearBasicAuthCredentials();
+	        setAuthRequired(true);
+	        setAuthError(null);
+	        setStorageHealthy(false);
+	        setStorageMessage('Sign in required.');
+	        setStorageReady(true);
+	        return;
+	      }
+	      const message = error instanceof Error ? error.message : 'Backend save failed.';
+	      setStorageHealthy(false);
+	      setStorageMessage(message);
+	      if (mode === 'manual') {
+	        window.alert(t(language, 'saveFailed', { message }));
+	      }
     } finally {
       if (mode === 'manual') {
         setStorageSaving(false);
@@ -634,29 +723,6 @@ function App() {
     void persistWorkbook('manual');
   }, [persistWorkbook]);
 
-  const handleDeleteCurrentWorkbook = useCallback(() => {
-    if (!backendWorkbookId) {
-      return;
-    }
-
-    if (!window.confirm(t(language, 'deleteWorkbookConfirm', { title: resolvedTitle }))) {
-      return;
-    }
-
-    void (async () => {
-      try {
-        await deleteWorkbookRecord(backendWorkbookId);
-        setBackendWorkbookId(null);
-        resetProgressiveBackendLoadState();
-        setScreen('home');
-        await syncRecentFiles();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Delete failed.';
-        window.alert(t(language, 'deleteFailed', { message }));
-      }
-    })();
-  }, [backendWorkbookId, language, resetProgressiveBackendLoadState, resolvedTitle, syncRecentFiles]);
-
   const handleDownloadWorkbook = useCallback((record: BackendWorkbookRecord) => {
     try {
       const fileName = buildWorkbookFileName(record.currentFileName, record.title);
@@ -733,6 +799,40 @@ function App() {
     })();
   }, [handleDownloadWorkbook, language]);
 
+  const handleLogin = useCallback(async (username: string, password: string) => {
+    setAuthError(null);
+
+    try {
+      setBasicAuthCredentials(username, password);
+      await getStorageHealth();
+      setAuthRequired(false);
+      setStorageHealthy(true);
+      setStorageMessage('Signed in.');
+      setStorageReady(true);
+      await syncRecentFiles();
+    } catch (error) {
+      clearBasicAuthCredentials();
+      if (isUnauthorized(error)) {
+        setAuthRequired(true);
+        setAuthError('Invalid username or password.');
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : 'Login failed.';
+      setAuthRequired(true);
+      setAuthError(message);
+    }
+  }, [syncRecentFiles]);
+
+  const handleLogout = useCallback(() => {
+    clearBasicAuthCredentials();
+    setAuthRequired(true);
+    setAuthError(null);
+    setStorageHealthy(false);
+    setStorageMessage('Signed out.');
+    setStorageReady(true);
+  }, []);
+
   return (
     <>
       <input
@@ -757,26 +857,27 @@ function App() {
           onResumeDraft={handleResumeDraft}
           onCreateBlank={handleCreateBlank}
           onOpenFromDevice={handleOpenFromDevice}
+          onLogout={hasBasicAuthCredentials() ? handleLogout : undefined}
           onOpenRecentFile={handleOpenRecentFile}
           onDownloadRecentFile={handleDownloadRecentFile}
           onRenameRecentFile={handleRenameRecentFile}
           onDeleteRecentFile={handleDeleteRecentFile}
         />
       ) : (
-        <SpreadsheetScreen
-          language={language}
-          workbookStore={workbookStore}
-          title={resolvedTitle}
-          storageSaving={storageSaving}
-          loadingProgress={workbookLoadProgress}
-          canDeleteWorkbook={!!backendWorkbookId}
-          onGoHome={() => setScreen('home')}
-          onSave={handleSave}
-          onSwitchSheet={handleSwitchSheet}
-          onDeleteWorkbook={handleDeleteCurrentWorkbook}
-          onRenameTitle={setTitle}
-        />
-      )}
+	        <SpreadsheetScreen
+	          language={language}
+	          workbookStore={workbookStore}
+	          title={resolvedTitle}
+	          storageSaving={storageSaving}
+	          loadingProgress={workbookLoadProgress}
+	          onGoHome={() => setScreen('home')}
+	          onSave={handleSave}
+	          onSwitchSheet={handleSwitchSheet}
+	          onRenameTitle={setTitle}
+	        />
+	      )}
+
+      {authRequired ? <LoginScreen error={authError} onLogin={handleLogin} /> : null}
     </>
   );
 }

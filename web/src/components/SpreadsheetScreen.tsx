@@ -41,11 +41,9 @@ interface SpreadsheetScreenProps {
     totalRows: number;
     currentSheetName: string;
   };
-  canDeleteWorkbook: boolean;
   onGoHome: () => void;
   onSave: () => void;
   onSwitchSheet: (sheetId: string) => void;
-  onDeleteWorkbook: () => void;
   onRenameTitle: (value: string) => void;
 }
 
@@ -55,11 +53,9 @@ export function SpreadsheetScreen({
   title,
   storageSaving,
   loadingProgress,
-  canDeleteWorkbook,
   onGoHome,
   onSave,
   onSwitchSheet,
-  onDeleteWorkbook,
   onRenameTitle,
 }: SpreadsheetScreenProps) {
   const storeRef = useRef(workbookStore);
@@ -69,6 +65,8 @@ export function SpreadsheetScreen({
 
   const [formulaSelectionMode] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(false);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
+  const fullscreenSupported = typeof document !== 'undefined' && Boolean((document as Document).fullscreenEnabled);
   const [cellScale, setCellScale] = useState(1);
   const [rangeSelectionAnchor, setRangeSelectionAnchor] = useState<{ row: number; col: number } | null>(null);
   const [rangeSelectionEnd, setRangeSelectionEnd] = useState<{ row: number; col: number } | null>(null);
@@ -87,6 +85,14 @@ export function SpreadsheetScreen({
     storeRef.current = workbookStore;
     saveRef.current = onSave;
   }, [onSave, workbookStore]);
+
+  useEffect(() => {
+    if (!fullscreenSupported) return undefined;
+    const handler = () => setFullscreenActive(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', handler);
+    handler();
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, [fullscreenSupported]);
 
   useEffect(() => () => {
     if (switchTimerRef.current !== null) {
@@ -557,27 +563,45 @@ export function SpreadsheetScreen({
             />
           </div>
 
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.viewModeButton}
-              onClick={workbookStore.toggleActiveSheetRowOrder}
-            >
-              {workbookStore.activeSheetReversed
-                ? t(language, 'showOldestFirst')
-                : t(language, 'showNewestFirst')}
-            </button>
-            {canDeleteWorkbook ? (
-              <button type="button" className={styles.deleteButton} onClick={onDeleteWorkbook}>
-                {t(language, 'delete')}
-              </button>
-            ) : null}
-            <button type="button" className={styles.saveButton} onClick={onSave} disabled={storageSaving}>
-              {storageSaving ? t(language, 'saving') : t(language, 'save')}
-            </button>
-          </div>
-        </header>
-      ) : null}
+	          <div className={styles.actions}>
+	            <button
+	              type="button"
+	              className={styles.viewModeButton}
+	              onClick={workbookStore.toggleActiveSheetRowOrder}
+	            >
+	              {workbookStore.activeSheetReversed
+	                ? t(language, 'showOldestFirst')
+	                : t(language, 'showNewestFirst')}
+	            </button>
+	            {fullscreenSupported ? (
+	              <button
+	                type="button"
+	                className={styles.fullscreenButton}
+	                onClick={() => {
+	                  void (async () => {
+	                    try {
+	                      if (document.fullscreenElement) {
+	                        await document.exitFullscreen();
+	                      } else {
+	                        await document.documentElement.requestFullscreen();
+	                      }
+	                    } catch {
+	                      // Ignore fullscreen failures (e.g. iOS Safari / permission restrictions).
+	                    }
+	                  })();
+	                }}
+	                aria-label={t(language, fullscreenActive ? 'exitFullscreen' : 'enterFullscreen')}
+	                title={t(language, fullscreenActive ? 'exitFullscreen' : 'enterFullscreen')}
+	              >
+	                ⤢
+	              </button>
+	            ) : null}
+	            <button type="button" className={styles.saveButton} onClick={onSave} disabled={storageSaving}>
+	              {storageSaving ? t(language, 'saving') : t(language, 'save')}
+	            </button>
+	          </div>
+	        </header>
+	      ) : null}
 
       {chromeVisible ? (
         <Toolbar

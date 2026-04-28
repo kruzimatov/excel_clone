@@ -1,4 +1,5 @@
 import type { FileDescriptor, SheetRowChunk, Workbook } from '../types';
+import { getAuthHeader } from './auth';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
 
@@ -64,17 +65,46 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
+export interface ExternalSyncServiceResult {
+  skipped: boolean;
+  reason?: string;
+  error?: string;
+  spreadsheetUrl?: string;
+  spreadsheetId?: string;
+}
+
+export interface ExternalSyncResult {
+  appsScript?: ExternalSyncServiceResult;
+  telegram?: ExternalSyncServiceResult;
+}
+
+interface SaveWorkbookEnvelope<T> extends ApiEnvelope<T> {
+  integrations?: ExternalSyncResult | null;
+}
+
 interface HealthResponse {
   status: string;
   database: string;
   message: string;
 }
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const authorization = getAuthHeader();
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(authorization ? { Authorization: authorization } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -90,7 +120,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Keep the generic message when the response is not JSON.
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {
@@ -146,20 +176,32 @@ export async function getWorkbookSheetRowsChunk(
   return response.data;
 }
 
-export async function createWorkbookRecord(payload: PersistWorkbookPayload) {
-  const response = await fetchJson<ApiEnvelope<BackendWorkbookRecord>>('/workbooks', {
+export async function createWorkbookRecord(payload: PersistWorkbookPayload, options?: { syncExternal?: boolean }) {
+  const query = options?.syncExternal ? '?syncExternal=1' : '';
+  const response = await fetchJson<SaveWorkbookEnvelope<BackendWorkbookRecord>>(`/workbooks${query}`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  return response.data;
+  return {
+    record: response.data,
+    integrations: response.integrations ?? null,
+  };
 }
 
-export async function updateWorkbookRecord(id: string, payload: PersistWorkbookPayload) {
-  const response = await fetchJson<ApiEnvelope<BackendWorkbookRecord>>(`/workbooks/${id}`, {
+export async function updateWorkbookRecord(
+  id: string,
+  payload: PersistWorkbookPayload,
+  options?: { syncExternal?: boolean },
+) {
+  const query = options?.syncExternal ? '?syncExternal=1' : '';
+  const response = await fetchJson<SaveWorkbookEnvelope<BackendWorkbookRecord>>(`/workbooks/${id}${query}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
-  return response.data;
+  return {
+    record: response.data,
+    integrations: response.integrations ?? null,
+  };
 }
 
 export async function renameWorkbookRecord(id: string, title: string) {
@@ -197,6 +239,20 @@ export async function uploadChunkedWorkbookSheet(
   const response = await fetchJson<ApiEnvelope<BackendWorkbookSummary>>(`/workbooks/${workbookId}/chunked-sheet`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+  return response.data;
+}
+
+export async function syncWorkbookRecord(workbookId: string) {
+  const response = await fetchJson<ApiEnvelope<ExternalSyncResult>>(`/workbooks/${workbookId}/sync`, {
+    method: 'POST',
+  });
+  return response.data;
+}
+
+export async function syncWorkbookToAppsScript(workbookId: string) {
+  const response = await fetchJson<ApiEnvelope<ExternalSyncServiceResult>>(`/workbooks/${workbookId}/sync/apps-script`, {
+    method: 'POST',
   });
   return response.data;
 }

@@ -14,7 +14,13 @@ import {
   uploadWorkbookSheetChunk,
   updateWorkbook,
 } from '../db/workbooks.js';
-import { workbookChunkedInitSchema, workbookChunkedSheetPayloadSchema, workbookRecordInputSchema } from '../types/workbook.js';
+import { syncWorkbookExternally, syncWorkbookToAppsScript } from '../integrations/workbookSync.js';
+import {
+  workbookChunkedInitSchema,
+  workbookChunkedSheetPayloadSchema,
+  workbookRecordInputSchema,
+  type WorkbookRecord,
+} from '../types/workbook.js';
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -34,6 +40,35 @@ const sheetRowsQuerySchema = z.object({
   beforeRow: z.coerce.number().int().min(0).optional(),
   limit: z.coerce.number().int().min(1).max(20000).default(5000),
 });
+
+const syncExternalQuerySchema = z.object({
+  syncExternal: z.preprocess(
+    (value) => value === '1' || value === 'true' || value === true,
+    z.boolean(),
+  ).default(false),
+});
+
+interface SyncableWorkbookRecord {
+  id: string;
+  title: string;
+  currentFileName: string | null;
+  updatedAt: string;
+  workbook?: WorkbookRecord | null;
+}
+
+async function syncExternalIfRequested(syncExternal: boolean, workbook: SyncableWorkbookRecord | null) {
+  if (!syncExternal || !workbook?.workbook) {
+    return null;
+  }
+
+  return syncWorkbookExternally({
+    id: workbook.id,
+    title: workbook.title,
+    currentFileName: workbook.currentFileName,
+    updatedAt: workbook.updatedAt,
+    workbook: workbook.workbook,
+  });
+}
 
 export const workbookRouter = Router();
 
@@ -56,13 +91,16 @@ workbookRouter.get('/:id', async (request: Request, response: Response) => {
 });
 
 workbookRouter.post('/', async (request: Request, response: Response) => {
+  const { syncExternal } = syncExternalQuerySchema.parse(request.query);
   const payload = workbookRecordInputSchema.parse(request.body);
   const workbook = await createWorkbook(payload);
-  response.status(201).json({ data: workbook });
+  const integrations = await syncExternalIfRequested(syncExternal, workbook);
+  response.status(201).json({ data: workbook, integrations });
 });
 
 workbookRouter.put('/:id', async (request: Request, response: Response) => {
   const { id } = workbookIdSchema.parse(request.params);
+  const { syncExternal } = syncExternalQuerySchema.parse(request.query);
   const payload = workbookRecordInputSchema.parse(request.body);
   const workbook = await updateWorkbook(id, payload);
 
@@ -71,7 +109,8 @@ workbookRouter.put('/:id', async (request: Request, response: Response) => {
     return;
   }
 
-  response.json({ data: workbook });
+  const integrations = await syncExternalIfRequested(syncExternal, workbook);
+  response.json({ data: workbook, integrations });
 });
 
 workbookRouter.get('/:id/meta', async (request: Request, response: Response) => {
@@ -122,6 +161,46 @@ workbookRouter.post('/:id/chunked-sheet', async (request: Request, response: Res
   }
 
   response.json({ data: workbook });
+});
+
+workbookRouter.post('/:id/sync', async (request: Request, response: Response) => {
+  const { id } = workbookIdSchema.parse(request.params);
+  const workbook = await getWorkbookById(id);
+
+  if (!workbook?.workbook) {
+    response.status(404).json({ error: 'Workbook not found.' });
+    return;
+  }
+
+  const integrations = await syncWorkbookExternally({
+    id: workbook.id,
+    title: workbook.title,
+    currentFileName: workbook.currentFileName,
+    updatedAt: workbook.updatedAt,
+    workbook: workbook.workbook,
+  });
+
+  response.json({ data: integrations });
+});
+
+workbookRouter.post('/:id/sync/apps-script', async (request: Request, response: Response) => {
+  const { id } = workbookIdSchema.parse(request.params);
+  const workbook = await getWorkbookById(id);
+
+  if (!workbook?.workbook) {
+    response.status(404).json({ error: 'Workbook not found.' });
+    return;
+  }
+
+  const result = await syncWorkbookToAppsScript({
+    id: workbook.id,
+    title: workbook.title,
+    currentFileName: workbook.currentFileName,
+    updatedAt: workbook.updatedAt,
+    workbook: workbook.workbook,
+  });
+
+  response.json({ data: result });
 });
 
 workbookRouter.patch('/:id/title', async (request: Request, response: Response) => {

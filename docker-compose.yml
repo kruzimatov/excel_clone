@@ -23,12 +23,20 @@ services:
       target: backend
     restart: unless-stopped
     volumes:
-      - .:/app
-      - backend_node_modules:/app/node_modules
+      - ./backend:/app/backend
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
     environment:
       PORT: 4000
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/excel_clone
       CORS_ORIGIN: http://localhost:5173
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      APPS_SCRIPT_WEBHOOK_URL: ${APPS_SCRIPT_WEBHOOK_URL:-}
+      APPS_SCRIPT_SECRET: ${APPS_SCRIPT_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     ports:
       - "4000:4000"
     depends_on:
@@ -41,8 +49,9 @@ services:
       target: web
     restart: unless-stopped
     volumes:
-      - .:/app
-      - web_node_modules:/app/node_modules
+      - ./web:/app/web
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
     environment:
       VITE_API_PROXY_TARGET: http://backend:4000
       CHOKIDAR_USEPOLLING: "true"
@@ -53,5 +62,3 @@ services:
 
 volumes:
   postgres_data:
-  backend_node_modules:
-  web_node_modules:

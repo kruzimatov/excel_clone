@@ -103,6 +103,8 @@ const MESSAGES = {
     deleteRowsConfirm: '{count} qator o‘chirilsinmi?',
     showNewestFirst: 'Yangilar tepada',
     showOldestFirst: 'Eskilar tepada',
+    enterFullscreen: 'To‘liq ekran',
+    exitFullscreen: 'Ekrandan chiqish',
   },
   ru: {
     appTitle: 'Отчет',
@@ -202,6 +204,8 @@ const MESSAGES = {
     deleteRowsConfirm: 'Удалить {count} строк?',
     showNewestFirst: 'Новые сверху',
     showOldestFirst: 'Старые сверху',
+    enterFullscreen: 'На весь экран',
+    exitFullscreen: 'Выйти из экрана',
   },
 } as const;
 
